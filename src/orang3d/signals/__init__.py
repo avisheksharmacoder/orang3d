@@ -11,6 +11,12 @@ from .at2_parser import (
     apply_baseline_correction,
     apply_bandpass_filter,
 )
+from .topography import (
+    TopographicAmplificationResult,
+    compute_topographic_amplification_factor,
+    apply_topographic_amplification,
+    compute_slope_modified_passive_resistance,
+)
 
 __all__ = [
     "generate_ricker_wavelet",
@@ -22,4 +28,8 @@ __all__ = [
     "parse_at2_file",
     "apply_baseline_correction",
     "apply_bandpass_filter",
+    "TopographicAmplificationResult",
+    "compute_topographic_amplification_factor",
+    "apply_topographic_amplification",
+    "compute_slope_modified_passive_resistance",
 ]

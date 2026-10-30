@@ -21,7 +21,15 @@ from ..signals.synthetic import generate_ricker_wavelet, generate_harmonic_sweep
 from ..signals.at2_parser import parse_at2_file
 from .viewport_3d import Viewport3D
 from .charts_2d import Charts2DWidget
-from .panels import GeometryPanel, SoilPanel, SeismicPanel
+from .panels import (
+    GeometryPanel, SoilPanel, SeismicPanel,
+    ShellAndPierPanel, StrutAndPilePanel, ISDesignAuditTab
+)
+from ..models.advanced_wall_params import (
+    MultiStrutPiledWallModel, CurvedShellGeometry, PierAndPileGeometry, StrutSupportSystem
+)
+from ..models.is_code_params import IndianDesignStandards
+from ..io.dxf_export import export_retaining_wall_dxf, RetainingWallDXFExporter, EZDXF_AVAILABLE
 from ..io.serialization import save_project_session, load_project_session, CorruptProjectError
 from ..io.mesh_export import export_mesh_to_vtk, export_mesh_to_stl, export_mesh_to_obj, export_signals_to_csv
 from ..io.report_generator import generate_engineering_pdf_report
@@ -41,6 +49,13 @@ class MainWindow(QMainWindow):
         self.soil = SoilProperties()
         self.seismic = SeismicParams()
         self.results = AnalysisResults()
+
+        # Advanced curved shell & strut-pile models (Phase 10)
+        self.shell_geom = CurvedShellGeometry()
+        self.pier_pile_geom = PierAndPileGeometry()
+        self.strut_sys = StrutSupportSystem()
+        self.standards = IndianDesignStandards()
+        self.num_bays = 3
 
         # Dynamic simulation & waveform state
         self.time_arr = np.array([])
@@ -170,6 +185,8 @@ class MainWindow(QMainWindow):
         act_exit.triggered.connect(self.close)
 
         menu_export = menu_bar.addMenu("&Export")
+        act_exp_dxf = menu_export.addAction("Export AutoCAD DXF (.DXF)...")
+        act_exp_dxf.triggered.connect(self._export_dxf_dialog)
         act_exp_vtk = menu_export.addAction("Export 3D Mesh (.VTK)...")
         act_exp_vtk.triggered.connect(lambda: self._export_mesh_dialog("vtk"))
         act_exp_stl = menu_export.addAction("Export 3D Mesh (.STL)...")
@@ -199,6 +216,11 @@ class MainWindow(QMainWindow):
         btn_report.setToolTip("Generate comprehensive geotechnical calculation report (Ctrl+P)")
         btn_report.clicked.connect(self._generate_report_dialog)
         toolbar.addWidget(btn_report)
+
+        btn_dxf = QPushButton("📐 AutoCAD DXF")
+        btn_dxf.setToolTip("Export detailed layered AutoCAD DXF construction drawings with reinforcement detailing")
+        btn_dxf.clicked.connect(self._export_dxf_dialog)
+        toolbar.addWidget(btn_dxf)
 
         toolbar.addSeparator()
 
@@ -250,7 +272,15 @@ class MainWindow(QMainWindow):
 
         self.panel_geom = GeometryPanel()
         self.panel_geom.geometryChanged.connect(self._on_geom_changed)
-        self.tabs.addTab(self.panel_geom, "Geometry")
+        self.tabs.addTab(self.panel_geom, "Cantilever Wall")
+
+        self.panel_shell = ShellAndPierPanel()
+        self.panel_shell.shellChanged.connect(self._on_shell_changed)
+        self.tabs.addTab(self.panel_shell, "Curved Shell")
+
+        self.panel_strut = StrutAndPilePanel()
+        self.panel_strut.strutPileChanged.connect(self._on_strut_pile_changed)
+        self.tabs.addTab(self.panel_strut, "Strut & Piles")
 
         self.panel_soil = SoilPanel()
         self.panel_soil.soilChanged.connect(self._on_soil_changed)
@@ -263,21 +293,28 @@ class MainWindow(QMainWindow):
 
         h_splitter.addWidget(self.tabs)
 
-        # Right Vertical Splitter: Top = 3D Viewport, Bottom = 2D Charts
+        # Right Vertical Splitter: Top = 3D Viewport, Bottom = Tabbed 2D Charts / IS Audit
         v_splitter = QSplitter(Qt.Vertical)
         h_splitter.addWidget(v_splitter)
 
         self.viewport_3d = Viewport3D(self)
         v_splitter.addWidget(self.viewport_3d)
 
+        self.bottom_tabs = QTabWidget()
+        self.bottom_tabs.setMinimumHeight(240)
+
         self.charts_2d = Charts2DWidget(self)
-        self.charts_2d.setMinimumHeight(220)
         self.charts_2d.playheadMoved.connect(self._on_chart_playhead_moved)
         self.charts_2d.playbackToggled.connect(self._sync_playback_toggle)
         self.charts_2d.stepForwardClicked.connect(self._step_forward)
         self.charts_2d.stepBackwardClicked.connect(self._step_backward)
         self.charts_2d.speedChanged.connect(self._on_playback_speed_changed)
-        v_splitter.addWidget(self.charts_2d)
+        self.bottom_tabs.addTab(self.charts_2d, "📊 Seismic Waveforms & Dynamics")
+
+        self.audit_tab = ISDesignAuditTab(self)
+        self.bottom_tabs.addTab(self.audit_tab, "📋 IS Design Audit (IS 456 / 2911 / 800)")
+
+        v_splitter.addWidget(self.bottom_tabs)
 
         # Splitter ratios
         v_splitter.setStretchFactor(0, 7)
@@ -331,6 +368,9 @@ class MainWindow(QMainWindow):
         # 3. Update 2D Dashboard Cards
         self.charts_2d.update_safety_metrics(self.results)
 
+        # 4. Update IS Design Code Audit Checklist
+        self._update_is_audit()
+
         t_elapsed_ms = (time.perf_counter() - t_start) * 1000.0
         self.lbl_fps.setText(f"Analytical Solve: {t_elapsed_ms:.2f} ms | High-Speed 60 FPS")
 
@@ -338,6 +378,32 @@ class MainWindow(QMainWindow):
         self.geom = geom
         self.recompute_and_render()
         self._regenerate_signals()
+
+    def _on_shell_changed(self, shell_geom: CurvedShellGeometry, pier_geom: PierAndPileGeometry, num_bays: int):
+        self.shell_geom = shell_geom
+        self.pier_pile_geom.pier_width = pier_geom.pier_width
+        self.pier_pile_geom.pier_depth = pier_geom.pier_depth
+        self.pier_pile_geom.pier_height = pier_geom.pier_height
+        self.num_bays = num_bays
+        self._update_is_audit()
+
+    def _on_strut_pile_changed(self, strut_sys: StrutSupportSystem, pier_pile: PierAndPileGeometry):
+        self.strut_sys = strut_sys
+        self.pier_pile_geom.pile_diameter = pier_pile.pile_diameter
+        self.pier_pile_geom.pile_length = pier_pile.pile_length
+        self.pier_pile_geom.rock_socket_length = pier_pile.rock_socket_length
+        self._update_is_audit()
+
+    def _update_is_audit(self):
+        if hasattr(self, "audit_tab") and self.audit_tab is not None:
+            self.audit_tab.update_audit(
+                shell_geom=self.shell_geom,
+                pier_pile_geom=self.pier_pile_geom,
+                struts=self.strut_sys,
+                soil=self.soil,
+                seismic=self.seismic,
+                standards=self.standards,
+            )
 
     def _on_soil_changed(self, soil: SoilProperties):
         self.soil = soil
@@ -556,6 +622,33 @@ class MainWindow(QMainWindow):
             )
             self.status_bar.showMessage(f"Successfully exported seismic curves to {path}", 5000)
 
+    def _export_dxf_dialog(self):
+        """Exports layered AutoCAD DXF construction drawing."""
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export AutoCAD DXF Construction Drawing",
+            "retaining_wall_cad.dxf",
+            "AutoCAD DXF Files (*.dxf);;All Files (*)",
+        )
+        if path:
+            try:
+                model = MultiStrutPiledWallModel(
+                    shell=self.shell_geom,
+                    piers=self.pier_pile_geom,
+                    struts=self.strut_sys,
+                )
+                out = export_retaining_wall_dxf(
+                    model=model,
+                    file_path=path,
+                    project_title=f"{APP_NAME} - Multi-Strut Piled Retaining Wall",
+                    drawing_number="DWG-O3D-001",
+                    num_bays=getattr(self, "num_bays", 3),
+                )
+                self.status_bar.showMessage(f"DXF Drawing exported successfully: {out}", 5000)
+                QMessageBox.information(self, "CAD Export Complete", f"Layered AutoCAD DXF created:\n{out}")
+            except Exception as e:
+                QMessageBox.critical(self, "CAD Export Error", f"Failed to generate DXF:\n{e}")
+
     def _generate_report_dialog(self):
         """Generates comprehensive geotechnical calculation PDF report."""
         path, _ = QFileDialog.getSaveFileName(
@@ -624,4 +717,12 @@ class MainWindow(QMainWindow):
         self.btn_kratos.setEnabled(True)
         self.btn_kratos.setText("⚙ Run Kratos GeoMechanics FEA")
         QMessageBox.critical(self, "Kratos Solver Error", f"FEA simulation encountered an error:\n{err}")
+
+    def closeEvent(self, event):
+        if hasattr(self, "viewport_3d") and self.viewport_3d is not None:
+            try:
+                self.viewport_3d.close()
+            except Exception:
+                pass
+        super().closeEvent(event)
 

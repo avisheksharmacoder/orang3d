@@ -1,55 +1,75 @@
 # orang3D Comprehensive Simulation Guide
 
-**Real-Time 3D Seismic, Hydrodynamic, and Geotechnical Soil-Structure Interaction Analysis**
+**Real-Time 3D Seismic, Hydrodynamic, Geotechnical SSI, and Structural Code Design for Retaining Systems**
 
 ---
 
 ## Table of Contents
 
-1. [Introduction & Two-Speed Physics Architecture](#1-introduction--two-speed-physics-architecture)
+1. [Introduction & Multi-Tier Physics Architecture](#1-introduction--multi-tier-physics-architecture)
 2. [Installation & Launching the Application](#2-installation--launching-the-application)
-3. [User Interface Anatomy](#3-user-interface-anatomy)
+3. [User Interface Anatomy & Workspaces](#3-user-interface-anatomy--workspaces)
 4. [Step-by-Step Simulation Workflows](#4-step-by-step-simulation-workflows)
-   - [Workflow 1: Static Cantilever Sizing & Bearing Stability](#workflow-1-static-cantilever-sizing--bearing-stability)
-   - [Workflow 2: Groundwater Flooding & Backfill Liquefaction](#workflow-2-groundwater-flooding--backfill-liquefaction)
-   - [Workflow 3: Dynamic Earthquake & Newmark Permanent Sliding](#workflow-3-dynamic-earthquake--newmark-permanent-sliding)
-   - [Workflow 4: Deep Continuum Soil-Structure Interaction (Kratos FEA)](#workflow-4-deep-continuum-soil-structure-interaction-kratos-fea)
-   - [Workflow 5: Structural Stem Reinforcement Design (ACI 318 / EC2)](#workflow-5-structural-stem-reinforcement-design-aci-318--ec2)
-5. [3D Viewport Controls, Visualization & Cutting Planes](#5-3d-viewport-controls-visualization--cutting-planes)
-6. [2D Waveform Dashboard & Transport Controls](#6-2d-waveform-dashboard--transport-controls)
+   - [Workflow 1: Static Cantilever Wall Sizing & Bearing Stability](#workflow-1-static-cantilever-wall-sizing--bearing-stability)
+   - [Workflow 2: Groundwater Flooding, Infiltration & Liquefaction](#workflow-2-groundwater-flooding-infiltration--liquefaction)
+   - [Workflow 3: Real-Time Earthquake Waveform Playback & Newmark Sliding](#workflow-3-real-time-earthquake-waveform-playback--newmark-sliding)
+   - [Workflow 4: Multi-Bay Curved Cylindrical Shell & Bored Pile Foundation Design](#workflow-4-multi-bay-curved-cylindrical-shell--bored-pile-foundation-design)
+   - [Workflow 5: Live Indian Standards Code Audit (IS 456 / 2911 / 800)](#workflow-5-live-indian-standards-code-audit-is-456--2911--800)
+   - [Workflow 6: Deep Continuum Soil-Structure Interaction (Kratos FEA)](#workflow-6-deep-continuum-soil-structure-interaction-kratos-fea)
+   - [Workflow 7: Automated AutoCAD DXF & Engineering PDF Report Generation](#workflow-7-automated-autocad-dxf--engineering-pdf-report-generation)
+5. [3D Viewport Controls, Visualization & Slicing Tools](#5-3d-viewport-controls-visualization--slicing-tools)
+6. [2D Waveform Dashboard & Dynamic Safety Badges](#6-2d-waveform-dashboard--dynamic-safety-badges)
 7. [Project Archiving, CAD Mesh Export & PDF Reports](#7-project-archiving-cad-mesh-export--pdf-reports)
 8. [Engineering Reference & Governing Equations](#8-engineering-reference--governing-equations)
-9. [Troubleshooting & FAQs](#9-troubleshooting--faqs)
+9. [Troubleshooting & Frequently Asked Questions (FAQs)](#9-troubleshooting--frequently-asked-questions-faqs)
 
 ---
 
-## 1. Introduction & Two-Speed Physics Architecture
+## 1. Introduction & Multi-Tier Physics Architecture
 
-**orang3D** is a scientific desktop engineering application designed to evaluate the physical stability, structural integrity, and dynamic response of cantilever retaining walls subjected to earthquake ground shaking, rising water tables, and backfill liquefaction.
+**orang3D** is a scientific desktop engineering workstation designed for geotechnical and structural engineers, infrastructure developers, and researchers. It evaluates the physical stability, structural integrity, and dynamic response of retaining structures subjected to earthquake ground motions, rising water tables, rainfall infiltration, and hillside slope pressures.
 
-Unlike traditional software that forces an engineer to choose between simplified spreadsheets or cumbersome finite element tools, orang3D features a **Two-Speed Physics Architecture**:
+The software supports two structural paradigms:
+1. **Conventional Reinforced Concrete Cantilever Retaining Walls** (T-shaped stem, base footing slab, and shear key).
+2. **Advanced Multi-Bay Multi-Strut Piled Curved Cylindrical Retaining Walls** (cylindrical shell panels, vertical concrete piers, bored cast-in-situ piles with rock socketing, and multi-tier raking structural steel struts).
+
+Unlike traditional software that forces an engineer to choose between simplified spreadsheets or slow, cumbersome finite element software, orang3D features a **Multi-Tier Physics Architecture**:
 
 ```
 +--------------------------------------------------------------------------------------------------+
-|                                    orang3D Physics Engine                                        |
+|                                    orang3D Physics Architecture                                  |
 +--------------------------------------------------------------------------------------------------+
 |                                                                                                  |
-|   Tier 1: Ultra-Fast Vectorized Analytical Core (< 2 ms @ 60 FPS)                                |
-|   ---------------------------------------------------------------                                |
+|   Tier 1: Ultra-Fast Vectorized Analytical Engine (< 1 ms @ 60 FPS)                              |
+|   -----------------------------------------------------------------                              |
+|   • Coulomb (1776) and Rankine (1857) static active and passive earth pressures                  |
 |   • Mononobe-Okabe (1929) dynamic earth pressure coefficients (K_ae, K_pe)                       |
-|   • Seed & Whitman (1970) seismic thrust height partitioning (0.33H static vs 0.60H dynamic)     |
-|   • Coulomb (1776) and Rankine (1857) static earth pressures                                     |
-|   • Meyerhof, Hansen, and Vesic ultimate bearing capacity with eccentricity checks               |
+|   • Seed & Whitman (1970) dynamic thrust height partitioning (0.33H static vs 0.60H dynamic)     |
+|   • Terzaghi/Handy (1985) 3D horizontal soil arching between vertical piers                      |
+|   • Meyerhof, Hansen, and Vesic ultimate bearing capacity with dynamic eccentricity checks      |
 |   • Differential beam equilibrium (dM/dy = -V) for continuous stem bending moments & shears       |
-|   • Newmark (1965) downhill double-integration for permanent sliding displacements u(t)          |
+|   • Newmark (1965) downhill double-integration for permanent seismic sliding displacements       |
 |   • Pure NumPy 8-node hexahedral solid mesh generator (1,000+ brick elements in < 1.5 ms)        |
 |                                                                                                  |
-|   Tier 2: Deep Continuum Soil-Structure Interaction FEA (Multi-Threaded OpenMP Worker)           |
+|   Tier 2: AI / PINN Fast Surrogates & Uncertainty Quantification (< 0.2 ms)                     |
+|   -------------------------------------------------------------------------                      |
+|   • Physics-Informed Neural Network (PINN) with horizontal equilibrium projection (∑Fx = 0)      |
+|   • Latin Hypercube Sampling (LHS) with Kolmogorov-Smirnov uniformity verification               |
+|   • Monte Carlo structural reliability (Cornell reliability index β and failure probability Pf)   |
+|   • Monotonic HAZUS-calibrated seismic fragility curves (Slight, Moderate, Extensive, Collapse)  |
+|                                                                                                  |
+|   Tier 3: Nonlinear Soil-Structure Interaction (BNWF via OpenSeesPy)                             |
+|   ------------------------------------------------------------------                             |
+|   • Beam on Nonlinear Winkler Foundation (BNWF) modeling pile-soil contact                       |
+|   • Matlock soft-clay and API sand p-y lateral springs, Mosher t-z skin friction, q-z end bearing|
+|   • Broms lateral pile capacity and minimum embedment depth calculation                          |
+|                                                                                                  |
+|   Tier 4: Deep Continuum Soil-Structure Interaction FEA (Multi-Threaded Kratos Worker)           |
 |   ------------------------------------------------------------------------------------           |
 |   • Powered by KratosMultiphysics (KratosGeoMechanicsApplication & StructuralMechanics)          |
 |   • 2D Plane-Strain coupled hydromechanical u-p continuum formulation                            |
 |   • Lysmer-Kuhlemeyer radiation damping dampers preventing artificial wave box reflections       |
-|   • Step-by-step transient dynamic integration under historical accelerograms                    |
+|   • Step-by-step transient dynamic integration under historical earthquake accelerograms         |
 |                                                                                                  |
 +--------------------------------------------------------------------------------------------------+
 ```
@@ -58,71 +78,87 @@ Unlike traditional software that forces an engineer to choose between simplified
 
 ## 2. Installation & Launching the Application
 
-### 2.1 Virtual Environment Activation
+### 2.1 Virtual Environment Setup & Launch
 
-orang3D runs on Python 3.10+ (tested on Python 3.12) using PySide6, PyVista, pyqtgraph, NumPy, SciPy, and KratosMultiphysics.
+orang3D runs on **Python 3.10+** (tested on Python 3.12) using PySide6, PyVista, pyqtgraph, NumPy, SciPy, OpenSeesPy, ezdxf, and KratosMultiphysics.
 
-Activate the local virtual environment and install dependencies:
+Follow these exact commands in your terminal:
 
 ```bash
-# Navigate to the workspace
+# 1. Navigate to the orang3d directory
 cd /home/avisheks/Documents/dibs/orang3d
 
-# Activate virtual environment
+# 2. Activate the virtual environment
 source .venv/bin/activate
 
-# Launch orang3D GUI
-python3 main.py
+# 3. Launch the desktop graphical application
+python main.py
 ```
 
-### 2.2 Headless / Offscreen Execution (Testing & CI)
+### 2.2 Headless Verification & Testing
 
-To run automated benchmarks or headless report generation in Linux servers without an active X11 display:
+To verify all analytical models, GUI panels, and CAD exporters without starting the full graphical interface:
 
 ```bash
-# Run complete test suite (122 tests across 12 modules)
+# Run complete test suite (232 tests across 24 modules)
 PYTHONPATH=src QT_QPA_PLATFORM=offscreen pytest tests/ -v
 
-# Run with test coverage report
-PYTHONPATH=src QT_QPA_PLATFORM=offscreen pytest --cov=src/orang3d --cov-report=term tests/
+# Run with statement coverage report
+PYTHONPATH=src QT_QPA_PLATFORM=offscreen .venv/bin/coverage run --source=src/orang3d -m pytest -p no:cov tests/ && .venv/bin/coverage report -m
 ```
 
-### 2.3 Compiling Standalone Executables (Windows & Linux)
+### 2.3 Standalone Executable Packaging
 
-To export and package orang3D as a zero-dependency standalone `.exe` (Windows) or binary (Linux):
-- Run `./scripts/build_linux.sh` on Linux or `scripts\build_windows.bat` on Windows.
-- Detailed step-by-step instructions from `git clone` to distribution are provided in the **[Packaging & Export Guide](file:///home/avisheks/Documents/dibs/orang3d/docs/PACKAGING_AND_EXPORT_GUIDE.md)**.
+To build a zero-dependency portable binary:
+- **Linux:** Run `./scripts/build_linux.sh`
+- **Windows:** Run `scripts\build_windows.bat`
+- Refer to the detailed **[Packaging & Export Guide](file:///home/avisheks/Documents/dibs/orang3d/docs/PACKAGING_AND_EXPORT_GUIDE.md)** for distribution details.
 
 ---
 
-## 3. User Interface Anatomy
+## 3. User Interface Anatomy & Workspaces
 
-The orang3D graphical interface is organized into three primary workspaces designed for ergonomic pair-engineering:
+The orang3D graphical user interface is divided into functional workspaces designed for productive structural and geotechnical engineering:
 
 ```
 +--------------------------------------------------------------------------------------------------+
-| Top Menu: File (Open Ctrl+O, Save Ctrl+S, Report Ctrl+P) | Export (VTK, STL, OBJ, CSV)          |
-| Toolbar:  [📂 Open] [💾 Save] [📄 PDF Report] [Reset Cam] [▶ Play] [Scrubber Slider] [⚙ Kratos] |
+| Top Menu: File (Open Ctrl+O, Save Ctrl+S, PDF Report Ctrl+P, Exit) | Export (DXF, VTK, STL, OBJ) |
+| Top Bar:  [📂 Open] [💾 Save] [📄 PDF Report] [📐 AutoCAD DXF] [Reset Cam] [▶ Play] [Slider] [⚙]  |
 +---------------------------------------------------+----------------------------------------------+
 | LEFT PANEL: PARAMETER CONTROLS                   | RIGHT UPPER: 3D SCIENTIFIC VIEWPORT          |
 | ────────────────────────────────                  | ────────────────────────────────────         |
-| ┌──────────┬─────────────┬────────────────────┐   | • Real-time 3D Hexahedral Solid Mesh         |
-| │ Geometry │ Soil Strata │ Disaster / Seismic │   | • Colormap Heatmaps:                         |
-| └──────────┴─────────────┴────────────────────┘   |   - Von Mises Elastic Stress                 |
-| • Stem Height (2.0 - 15.0 m)                      |   - Hydrostatic Pore Pressure                |
-| • Stem Base / Top Thickness (m)                   |   - Active Coulomb Failure Wedge Overlay     |
-| • Toe & Heel Slab Widths (m)                      |   - Vector Glyphs: Contact & Bearing Shear   |
-| • Footing Slab Thickness (m)                      |   - Orthographic Cutting Planes (X, Y, Z)    |
-| • Shear Key Depth & Width (m)                     |   - Dynamic Mesh Warping (1x - 50x Scale)    |
-| • Backfill Friction Angle (phi)                   +----------------------------------------------+
-| • Wall-Soil Friction (delta)                      | RIGHT LOWER: 2D WAVEFORM & SAFETY DASHBOARD  |
-| • Subgrade Friction, Cohesion & Bearing Capacity  | ───────────────────────────────────────────  |
-| • Seismic Acceleration (kh, kv)                   | [Plot 1] a(t) Accelerogram (g)               |
-| • Groundwater Table Elevation (m)                 | [Plot 2] u(t) Newmark Permanent Slip (cm)    |
-| • Liquefaction Excess Ratio (r_u: 0 - 100%)       | [Plot 3] u_w(t) Dynamic Pore Pressure (kPa)  |
-| • Earthquake Input Selector (.AT2 / Synthetic)    | [Badges] [SAFE / MARGINAL / FAIL] Status     |
+| ┌─────────┬────────┬────────┬───────┬─────────┐   | • Real-Time 3D Mesh (Hexahedral / Curved)    |
+| │Cantilvr │ Shell  │ Struts │ Soil  │ Seismic │   | • Colormap Heatmaps:                         |
+| └─────────┴────────┴────────┴───────┴─────────┘   |   - Tensile Stress (MPa)                     |
+|                                                   |   - Von Mises Stress (MPa)                   |
+| [Cantilever Wall Tab]                             |   - Hydrostatic & Dynamic Pore Pressure      |
+| • Stem Height (2.0 - 15.0 m)                      | • Deformation Warp Factor (1x - 50x)         |
+| • Stem Base / Top Thickness (m)                   | • Toggles: [☑ Soil] [☑ Water] [☑ Wedge]      |
+| • Toe & Heel Widths (m) & Footing Thickness       | • Pressure Vector Glyphs (Contact & Bearing) |
+| • Shear Key Depth & Width (m)                     | • Orthogonal Slicing Plane Tool (X, Y, Z)    |
+|                                                   +----------------------------------------------+
+| [Curved Shell & Pier Tab]                         | RIGHT LOWER: TABBED DYNAMICS & CODE AUDIT    |
+| • Curvature Radius R (2.0 - 10.0 m)               | ───────────────────────────────────────────  |
+| • Bay Span L_bay (2.0 - 6.0 m) & Number of Bays   | ┌─────────────────────────┬────────────────┐ |
+| • Pier Width b_p, Pier Depth d_p, Pier Height     | │📊 Dynamic Waveforms     │📋 IS Code Audit│ |
+|                                                   | └─────────────────────────┴────────────────┘ |
+| [Strut & Piles Tab]                               | [Waveforms Tab]                              |
+| • Bored Pile Diameter D_p (0.6 - 2.0 m)           | • a(t) Accelerogram with live playhead       |
+| • Embedment Depth L_pile (4.0 - 30.0 m)           | • u(t) Newmark Cumulative Sliding Slip (cm)  |
+| • Rock Socket Length (0.5 - 6.0 m)                | • u_w(t) Dynamic Pore Pressure (kPa)         |
+| • Steel Strut Catalog (CHS / ISMB) & Rake Angle   | • Live Geotechnical Safety Cards:            |
+|                                                   |   - FS Sliding [SAFE / MARGINAL / FAIL]      |
+| [Soil Strata Tab]                                 |   - FS Overturning & FS Bearing              |
+| • Backfill Friction Angle (phi), Cohesion, Weight |   - Total Thrust P_ae & Stem Tension [CRACK] |
+| • Foundation Friction, Cohesion, Allow. Bearing   |                                              |
+|                                                   | [IS Code Audit Tab]                          |
+| [Disaster / Seismic Tab]                          | • 9-Column Indian Standards Checklist        |
+| • Peak Ground Acceleration kh (g), kv (g)         | • IS 456 (Flexure, Shear, Crack Width)       |
+| • Groundwater Table Depth (m)                     | • IS 2911 (Bored Pile Axial/Lateral Fixity)  |
+| • Liquefaction Excess Ratio r_u (0 - 100%)        | • IS 800 (Strut Compressive Buckling)        |
+| • Waveform Selector (.AT2 / Synthetic Ricker)     | • [Export Audit Sheet (.md)...] Button       |
 +---------------------------------------------------+----------------------------------------------+
-| Bottom Status Bar: Physical Invariants, FEA Step Progress, and Execution Diagnostics            |
+| Bottom Status Bar: Analytical Solve (< 1 ms @ 60 FPS) | Background Tasks | Execution Diagnostics  |
 +--------------------------------------------------------------------------------------------------+
 ```
 
@@ -130,12 +166,12 @@ The orang3D graphical interface is organized into three primary workspaces desig
 
 ## 4. Step-by-Step Simulation Workflows
 
-### Workflow 1: Static Cantilever Sizing & Bearing Stability
+### Workflow 1: Static Cantilever Wall Sizing & Bearing Stability
 
-**Objective:** Validate a concrete cantilever wall against sliding, overturning, and soil bearing capacity failure in dry sand.
+**Objective:** Validate a conventional reinforced concrete cantilever wall against sliding, overturning, and soil bearing capacity failure in dry granular soil.
 
 1. **Configure Wall Geometry:**
-   - Switch to the **Geometry** tab on the left panel.
+   - Click the **Cantilever Wall** tab on the left sidebar.
    - Set **Stem Height** to `6.00 m`.
    - Set **Stem Base Thick** to `0.70 m` and **Stem Top Thick** to `0.35 m`.
    - Set **Toe Width** to `1.20 m` and **Heel Width** to `2.60 m` (total base width $B = 4.50\text{ m}$).
@@ -143,226 +179,246 @@ The orang3D graphical interface is organized into three primary workspaces desig
    - Leave **Shear Key Depth** at `0.00 m`.
 2. **Assign Soil & Subgrade Properties:**
    - Switch to the **Soil Strata** tab.
-   - Set backfill **Friction Angle $\phi$** to `34.0°` and **Unit Weight $\gamma$** to `18.5 kN/m³`.
-   - Set interface **Wall Friction $\delta$** to `22.0°` (approximately $\frac{2}{3}\phi$).
+   - Set **Friction Angle $\phi$** to `34.0°` and **Unit Weight $\gamma$** to `18.5 kN/m³`.
+   - Set **Wall Friction $\delta$** to `22.0°` (typically $\approx \frac{2}{3}\phi$).
    - In the **Foundation Soil Bed** section, set **Found. Friction** to `30.0°`, **Found. Cohesion** to `20.0 kPa`, and **Allow. Bearing** to `350.0 kPa`.
 3. **Set Static Operating State:**
    - Switch to the **Disaster / Seismic** tab.
    - Ensure **Horizontal $k_h$** is set to `0.00 g` and **Vertical $k_v$** to `0.00 g`.
-   - Set **Water Depth** to `10.00 m` (below foundation level).
+   - Set **Water Depth** to `10.00 m` (well below the foundation).
 4. **Evaluate Stability Badges:**
-   - Look at the bottom-right safety card on the 2D dashboard:
+   - Look at the bottom-right safety card in the **📊 Seismic Waveforms & Dynamics** tab:
      - **Sliding Factor of Safety ($FS_{\text{sliding}}$):** Green badge ($FS \ge 1.50$, typically $\approx 2.10$).
      - **Overturning Factor of Safety ($FS_{\text{overturning}}$):** Green badge ($FS \ge 2.00$, typically $\approx 3.20$).
-     - **Bearing Capacity ($FS_{\text{bearing}}$):** Green badge ($FS \ge 2.50$).
-5. **Inspect Eccentricity & Contact Pressure:**
-   - Note the base contact pressure distribution:
-     - Peak toe pressure $q_{\max} \approx 135\text{ kPa} \le 350\text{ kPa}$ (allowable).
-     - Heel pressure $q_{\min} \approx 65\text{ kPa} > 0$ (no foundation uplift / tension detachment).
-     - The resultant vector falls strictly inside the middle-third ($e = \frac{B}{2} - \frac{M_{\text{net}}}{V} \le \frac{B}{6}$).
+     - **Bearing Capacity ($FS_{\text{bearing}}$):** Green badge ($FS \ge 2.50$, typically $\approx 3.10$).
+5. **Inspect Contact Pressure Distribution:**
+   - Peak toe pressure $q_{\max} \approx 135\text{ kPa} \le 350\text{ kPa}$ (allowable bearing capacity).
+   - Heel pressure $q_{\min} \approx 65\text{ kPa} > 0$ (no foundation uplift / tension detachment).
+   - The resultant line of action lies strictly inside the middle-third ($e \le B/6$).
 
 ---
 
-### Workflow 2: Groundwater Flooding & Backfill Liquefaction
+### Workflow 2: Groundwater Flooding, Infiltration & Liquefaction
 
-**Objective:** Simulate an extreme flood event where the groundwater table rises to $2.0\text{ m}$ below the crest with partial soil liquefaction.
+**Objective:** Simulate an extreme flood event where the groundwater table rises to $2.0\text{ m}$ below the crest with partial backfill liquefaction.
 
 1. **Raise Groundwater Table:**
    - Navigate to the **Disaster / Seismic** tab.
    - Adjust the **Water Depth** spinbox from `10.0 m` down to `2.00 m`.
-   - In the 3D viewport, observe the translucent cyan **Water Table Plane** cut across the soil and wall.
-2. **Review Analytical Thrust Increase:**
+   - In the 3D viewport, observe the translucent blue **Water Table Plane** cut across the soil and wall.
+2. **Observe Hydrostatic Thrust Surcharge:**
    - Notice that total lateral thrust nearly doubles from $\approx 105\text{ kN/m}$ to $\approx 220\text{ kN/m}$ due to hydrostatic water pressure:
      $$P_w = \frac{1}{2}\gamma_w (H - z_w)^2 = \frac{1}{2}(9.81)(6.8 - 2.0)^2 \approx 113.0\text{ kN/m}$$
-   - Buoyancy reduces the effective vertical dead weight:
-     $$\sigma'_v = \gamma z_w + (\gamma_{\text{sat}} - \gamma_w)(z - z_w)$$
+   - Soil submerged beneath the phreatic surface experiences buoyant unit weight reduction:
+     $$\gamma' = \gamma_{\text{sat}} - \gamma_w \approx 19.5 - 9.81 = 9.69\text{ kN/m}^3$$
 3. **Simulate Backfill Liquefaction:**
    - Drag the **Liquefaction** slider from `0%` to `40%` ($r_u = 0.40$).
-   - The effective internal friction angle degrades:
+   - The effective internal friction angle degrades automatically:
      $$\phi_{\text{eff}} = \arctan\left((1 - r_u)\tan\phi\right)$$
 4. **Inspect Safety Degradation:**
    - The **Sliding Badge** transitions from **SAFE (Green)** to **FAIL (Crimson Red)** ($FS_{\text{sliding}} < 1.0$).
    - The status bar displays a stability warning.
 5. **Mitigation via Shear Key:**
-   - Switch back to the **Geometry** tab and set **Shear Key Depth** to `0.80 m` and **Shear Key Width** to `0.50 m`.
-   - Observe how passive key resistance increases base shear capacity, restoring $FS_{\text{sliding}} \ge 1.20$.
+   - Switch back to the **Cantilever Wall** tab and set **Shear Key Depth** to `0.80 m` and **Shear Key Width** to `0.50 m`.
+   - Passive resistance on the shear key base restores sliding resistance back to $FS_{\text{sliding}} \ge 1.20$.
 
 ---
 
-### Workflow 3: Dynamic Earthquake & Newmark Permanent Sliding
+### Workflow 3: Real-Time Earthquake Waveform Playback & Newmark Sliding
 
-**Objective:** Ingest an earthquake accelerogram, calculate dynamic Mononobe-Okabe earth pressures, and integrate Newmark permanent sliding displacement.
+**Objective:** Ingest an earthquake accelerogram, simulate dynamic Mononobe-Okabe earth pressures, and track permanent sliding displacement in real time.
 
 1. **Select Waveform Input:**
    - On the **Disaster / Seismic** tab, locate the **Earthquake Waveform Input** group:
-     - **Synthetic Ricker Pulse:** Select `Synthetic: Ricker Pulse (2.5 Hz)` for impulsive near-fault shaking.
-     - **Harmonic Chirp Sweep:** Select `Synthetic: Harmonic Chirp (1 - 8 Hz)` for resonance sweeping.
-     - **Real PEER Strong-Motion Record:** Select `Load Historical .AT2 Record...`, click **Select .AT2 Record File**, and choose any PEER NGA/COSMOS `.AT2` file (e.g. 1994 Northridge or 1995 Kobe).
+     - **Synthetic Ricker Wavelet:** Select `Synthetic: Ricker Wavelet (2.5 Hz)` for impulsive near-fault shaking.
+     - **Harmonic Sweep:** Select `Synthetic: Harmonic Sweep (1 - 8 Hz)` for resonance testing.
+     - **Historical Earthquake Record:** Select `Load Historical .AT2 Record...`, click **Select .AT2 Record File**, and open any standard PEER record (e.g. 1994 Northridge, 1995 Kobe, or El Centro).
 2. **Set Seismic Acceleration Intensity:**
    - Set **Horizontal $k_h$** to `0.30 g` and **Vertical $k_v$** to `0.15 g`.
-   - Note the dynamic active earth pressure coefficient $K_{ae}$ increases according to Mononobe-Okabe:
+   - The dynamic active earth pressure coefficient $K_{ae}$ increases according to Mononobe-Okabe:
      $$\theta_e = \arctan\left(\frac{k_h}{1 - k_v}\right) = \arctan\left(\frac{0.30}{0.85}\right) = 19.4^\circ$$
-   - The dynamic thrust application height climbs upwards from $0.33H \to 0.58H$.
-3. **Inspect 2D Waveforms:**
-   - Look at the three synchronized plots on the 2D dashboard:
-     - **Plot 1 ($a(t)$):** Ground acceleration in units of $g$ (cyan-blue line).
+   - The dynamic thrust application height moves upwards from $0.33H \to 0.58H$ per Seed & Whitman.
+3. **Review 2D Dynamic Signal Plots:**
+   - Switch to the bottom **📊 Seismic Waveforms & Dynamics** tab:
+     - **Plot 1 ($a(t)$):** Ground acceleration in units of $g$ (cyan line).
      - **Plot 2 ($u(t)$):** Permanent downhill sliding displacement in $\text{cm}$ (orange line).
-     - **Plot 3 ($u_w(t)$):** Coupled dynamic pore-water pressure in $\text{kPa}$ (emerald line).
-   - If peak acceleration exceeds the critical yield acceleration $k_y$, permanent sliding $u(t)$ accumulates monotonically during exceedance pulses.
-4. **Animate Dynamic Response:**
-   - Click **▶ Play Seismic Wave** in the top toolbar or transport bar.
-   - The vertical playhead scrubs forward at 60 FPS:
-     - The 3D wall slides forward proportionally to $u(t)$.
-     - Translucent groundwater ripples with dynamic phase oscillations.
-     - Stress colormaps pulsate with instantaneous inertial thrust.
-   - Use the **Speed Multiplier** dropdown ($0.25\times, 0.5\times, 1.0\times, 2.0\times$) to inspect transient peaks in slow motion.
+     - **Plot 3 ($u_w(t)$):** Dynamic pore-water pressure buildup in $\text{kPa}$ (green line).
+4. **Start Seismic Wave Playback:**
+   - Click **▶ Play Seismic Wave** on the top toolbar.
+   - The button switches to **⏸ Pause** and the timeline scrubber moves smoothly across the record at 60 FPS:
+     - **3D Wall Deformation:** The concrete wall flexes under dynamic inertial pushing ($\pm m \cdot a(t)$).
+     - **Physical Sliding:** Whenever ground acceleration exceeds the wall's yield acceleration $k_y$, the 3D wall and active failure wedge physically slide forward along the foundation interface.
+     - **Water Ripples:** The water table surface oscillates with dynamic wave ripples.
+     - **Stress Heatmaps:** The stem base stress flashes between low stress and high tensile bending stress.
+5. **Interactive Investigation:**
+   - Drag the horizontal **Timeline Slider** with your mouse to scrub directly to the peak shockwave pulse.
+   - Use **`⏮ Step`** and **`Step ⏭`** buttons to advance frame-by-frame (16 ms increments).
+   - Adjust the **Speed** dropdown (`0.25×`, `0.5×`, `1.0×`, `2.0×`) to observe high-frequency seismic oscillations in slow motion.
 
 ---
 
-### Workflow 4: Deep Continuum Soil-Structure Interaction (Kratos FEA)
+### Workflow 4: Multi-Bay Curved Cylindrical Shell & Bored Pile Foundation Design
+
+**Objective:** Model an advanced retaining system using cylindrical concrete shell panels between vertical piers socketed into bedrock with raking steel struts.
+
+1. **Tune Curved Shell & Pier Geometry:**
+   - Click the **Curved Shell** tab on the left sidebar.
+   - Set **Panel Height $H$** to `7.00 m`.
+   - Set **Bay Span $L_{\text{bay}}$** to `3.50 m`.
+   - Set **Curvature Radius $R$** to `4.50 m`.
+   - Set **Shell Thickness $t$** to `0.40 m`.
+   - Set **Number of Bays** to `3` or `4`.
+   - In the **Vertical Pier Dimensions** group, set **Pier Width $b_p$** to `0.80 m`, **Pier Depth $d_p$** to `1.20 m`, and **Pier Height $h_p$** to `7.50 m`.
+2. **Observe Horizontal Soil Arching Relief:**
+   - Because $L_{\text{bay}} / R \le 1.0$, horizontal arching develops between the rigid piers.
+   - The effective lateral pressure pushing against the center of the curved shell panel is reduced by **$30\% - 65\%$** compared to a flat wall (Handy/Terzaghi modified arching).
+   - Bending moments in the thin shell panel drop, allowing a much thinner concrete section ($0.35\text{ m} - 0.45\text{ m}$) than a conventional cantilever wall of the same height.
+3. **Configure Bored Pile Substructure:**
+   - Switch to the **Strut & Piles** tab.
+   - Set **Pile Diameter $D_p$** to `1.00 m`.
+   - Set **Embedment Length $L_{\text{pile}}$** to `14.00 m`.
+   - Set **Rock Socketing Length** to `2.50 m` (securing the pile toe into sound bedrock).
+   - Notice the automatic center-to-center spacing enforcement ($s_p \ge 2.5 D_p = 2.50\text{ m}$) ensuring no group block shear failure.
+4. **Configure Multi-Tier Raking Steel Struts:**
+   - Select **Steel Section** from the catalog: `CHS 355.6x12.5 (Fe 250)`.
+   - Set **Number of Strut Levels** to `2`.
+   - Set **Level 1 Elevation** to `2.50 m` (measured from base) and **Level 2 Elevation** to `5.00 m`.
+   - Set **Strut Rake Angle** to `25.0°`.
+   - Raking struts transfer lateral earth forces into deep passive anchor blocks, relieving flexural demands on the vertical piers.
+
+---
+
+### Workflow 5: Live Indian Standards Code Audit (IS 456 / 2911 / 800)
+
+**Objective:** Perform a real-time regulatory compliance audit verifying concrete flexure, shear, crack widths, bored pile fixity, and steel strut buckling.
+
+1. **Open the Compliance Dashboard:**
+   - In the lower right panel, switch to the **📋 IS Design Audit (IS 456 / 2911 / 800)** tab.
+2. **Interpret the Live Audit Checklist:**
+   The table displays 9 structured engineering columns:
+   - **Component:** Structure being checked (`RC Shell Panel`, `Bored Pile Foundation`, `Steel Strut`).
+   - **Design Check:** Specific failure mode examined (`Flexural Moment Resistance`, `Transverse Shear Stress`, `Surface Crack Width Limit`, `Axial Compression Capacity`, `Lateral Deflection & Fixity`, `Compressive Buckling Resistance`, `Slenderness Ratio Limit`).
+   - **IS Clause:** Specific legal reference (e.g. `IS 456:2000 Cl. 38.1 & Annex G`, `IS 2911:2010 Appendix B & C`, `IS 800:2007 Cl. 7.1.2 & Table 9c`).
+   - **Demand vs. Capacity:** Direct comparison with engineering units ($\text{kNm/m}$, $\text{kN}$, $\text{MPa}$, $\text{mm}$).
+   - **Unity Ratio (UR = Demand / Capacity):**
+     - **Green (`PASS`):** $\text{UR} \le 0.90$ (Adequate safety margin).
+     - **Orange (`WARNING`):** $0.90 < \text{UR} \le 1.00$ (High utilization; monitor section).
+     - **Red (`FAIL`):** $\text{UR} > 1.00$ (Code violation; redesign required).
+   - **Detailing / Remarks:** Exact bar sizing callouts (e.g. `2-layer T16 @ 125 mm c/c`, `12-T25 Cage with T10 helical @ 100 mm pitch`).
+3. **Export Audit Calculation Sheet:**
+   - Click **"Export Audit Sheet (.md)..."** in the top right of the audit tab.
+   - Choose a save destination (e.g. `is_compliance_audit.md`).
+   - The generated Markdown file contains complete calculation formulas, input parameters, code citations, and summary tables suitable for formal submission to regulatory review bodies.
+
+---
+
+### Workflow 6: Deep Continuum Soil-Structure Interaction (Kratos FEA)
 
 **Objective:** Execute multi-threaded finite element continuum dynamics with viscous radiation boundary damping using KratosMultiphysics.
 
-1. **Prepare Model Parameters:**
-   - Set wall geometry, soil stratification, and seismic PGA to the desired target state.
-2. **Launch Kratos FEA Solver:**
-   - Click the toolbar button: **"⚙ Run Kratos GeoMechanics FEA"**.
-   - The button text changes to **"⏳ Kratos Solving..."** and disables to prevent concurrent solver collisions.
-3. **Background Execution Monitoring:**
-   - The FEA solver runs on a dedicated background `QThread` without freezing the Qt user interface.
-   - The status bar reports step-by-step progress:
+1. **Verify Geometric & Soil Setup:**
+   - Ensure wall dimensions and soil layers are set as desired.
+2. **Launch the Kratos Solver:**
+   - Click **"⚙ Run Kratos GeoMechanics FEA"** on the top toolbar.
+   - The button switches to **"⏳ Kratos Solving..."** and disables to prevent concurrent solver collisions.
+3. **Monitor Execution:**
+   - The FEA solver runs on a dedicated background `QThread` without freezing the desktop user interface.
+   - The bottom status bar reports step-by-step progress:
      ```
      Kratos FEA Step 120/400 (t=2.40s | Crest Deflection=2.15 cm | Pore Pressure=48.2 kPa)
      ```
-4. **Completion Diagnostics:**
-   - When finished, a completion modal displays:
-     - Total time steps integrated.
-     - Maximum dynamic crest deflection in $\text{cm}$.
-     - Maximum pore-water pressure generation in $\text{kPa}$.
-     - Convergence status (`CONVERGED`).
+4. **Review FEA Results:**
+   - A completion dialog presents the summary:
+     - Total dynamic steps integrated.
+     - Maximum crest deflection in $\text{cm}$.
+     - Maximum dynamic pore-water pressure generation in $\text{kPa}$.
+     - Convergence confirmation (`CONVERGED`).
 
 ---
 
-### Workflow 5: Structural Stem Reinforcement Design (ACI 318 / EC2)
+### Workflow 7: Automated AutoCAD DXF & Engineering PDF Report Generation
 
-**Objective:** Inspect internal shear and bending moment distributions along the wall stem and verify flexural reinforcement sizing.
+**Objective:** Export production-ready CAD drawings with standardized layers and a formal engineering calculation PDF report.
 
-1. **Review Stem Force Profiles:**
-   - Lateral earth pressures are integrated from stem crest down to base:
-     $$V(y) = \int_y^H p_{\text{lateral}}(z)\,dz \quad \text{and} \quad M(y) = \int_y^H V(z)\,dz$$
-   - The maximum bending moment $M_{\max}$ and shear force $V_{\max}$ occur at the base junction ($y = 0$).
-2. **Evaluate Concrete Tensile Stress & Cracking:**
-   - Extreme-fiber tensile stress is computed:
-     $$\sigma_t = \frac{M_{\max} \cdot (t_{\text{base}} / 2)}{I_{\text{base}}} - \frac{N_{\text{stem}}}{A_{\text{base}}}$$
-   - Compared against the modulus of rupture $f_r = 0.62\lambda\sqrt{f'_c}\text{ MPa}$ ($2.31\text{ MPa}$ for $28\text{ MPa}$ concrete):
-     - If $\sigma_t < f_r$: Classified as **`[ELASTIC]`** (uncracked section).
-     - If $\sigma_t \ge f_r$: Classified as **`[CRACKED]`** (flexural cracks develop; tension shifted to rebar).
-3. **Verify Rebar Detailing:**
-   - The design engine sizes required tension steel:
-     $$A_s = \frac{M_u}{\phi f_y (d - a/2)}$$
-   - Enforces minimum shrinkage and temperature steel ($A_{s,\min} = 0.0018 b h$).
-   - Calculates concrete shear capacity $\phi V_c = \phi 0.17\sqrt{f'_c} b d$ and flags whether shear stirrups are required.
+#### 1. Exporting Layered AutoCAD DXF Drawings:
+1. Click **"📐 AutoCAD DXF"** on the top toolbar (or select **Export → Export AutoCAD DXF (.DXF)...**).
+2. Choose a file path (e.g. `retaining_wall_cad.dxf`).
+3. In $< 0.1\text{ seconds}$, a layered AutoCAD DXF file is generated conforming to civil engineering CAD standards:
+   - **`WALL_OUTLINE` (Color 7: White/Black):** Concrete perimeter of curved shell panels, pier columns, and bored piles.
+   - **`REBAR_REINFORCEMENT` (Color 1: Red):** Circumferential mesh, longitudinal pile rebar cages, and helical ties.
+   - **`STRUT_DETAILS` (Color 4: Cyan):** Raking steel struts, bracket connections, and centerline axes.
+   - **`DIMENSIONS_AND_TEXT` (Color 3: Green):** Elevation markers, bay span dimensions, curvature radii, and formal title block.
+4. Open the generated file in **AutoCAD**, **Civil 3D**, or **LibreCAD** for final drafting and construction plan integration.
+
+#### 2. Generating Geotechnical PDF Reports:
+1. Click **"📄 PDF Report"** on the top toolbar (or press `Ctrl+P`).
+2. Choose a file path (e.g. `retaining_wall_calculation_report.pdf`).
+3. In $< 0.4\text{ seconds}$, a multi-page PDF document is generated containing:
+   - **Executive Header:** Project metadata, date, and software version.
+   - **Dimensioned Cross-Section Diagram:** Vector graphics diagram of stem, footing, shear key, water table, active thrust $P_{ae}$, and bearing pressure trapezoid.
+   - **Summary Tables:** Geometry, soil strata, seismic inputs, and safety factors.
+   - **Code Verification Checklist:** Automatic pass/fail checks against **IS 14458**, **Eurocode 7**, and **AASHTO LRFD**.
 
 ---
 
-## 5. 3D Viewport Controls, Visualization & Cutting Planes
+## 5. 3D Viewport Controls, Visualization & Slicing Tools
 
-The 3D scientific viewport uses PyVista and VTK for hardware-accelerated scientific rendering:
-
-```
-+--------------------------------------------------------------------------------------------------+
-| Viewport Controls Toolbar:                                                                       |
-| [Colormap: Viridis ▼] [Field: Von Mises Stress ▼] [Warp: 10x ───○───] [☑ Wedge] [☑ Glyphs]      |
-| [Slice: Orthogonal X Cut ▼] [Reset Camera]                                                       |
-+--------------------------------------------------------------------------------------------------+
-```
+The 3D scientific viewport is powered by PyVista and VTK for hardware-accelerated rendering:
 
 ### Camera Navigation
-
-- **Left-Click + Drag:** Orbit / rotate 3D camera around the wall center.
-- **Right-Click + Drag (or Scroll Wheel):** Smooth zoom in / out.
+- **Left-Click + Drag:** Orbit / rotate 3D camera around the structure.
+- **Right-Click + Drag (or Mouse Wheel):** Smooth zoom in / out.
 - **Middle-Click + Drag (or Shift + Left-Click):** Pan camera across the scene.
-- **Reset 3D Camera Button:** Re-centers and frames the retaining wall within standard isometric view.
+- **Reset 3D Camera Button:** Restores standard isometric framing.
 
-### Visualization Features
-
-1. **Scalar Field Colormaps:**
-   - **Von Mises Stress:** Visualizes equivalent stress concentrations at the stem base toe-heel junction using standard color palettes (`Viridis`, `Plasma`, `Inferno`, `Coolwarm`, `Jet`).
-   - **Pore-Water Pressure:** Displays hydrostatic and excess dynamic pore pressure gradients.
-2. **Deformation Mesh Warping:**
-   - Adjust the **Warp Slider** ($1\times$ to $50\times$) to exaggerate lateral stem bending and foundation sliding.
-3. **Active Failure Wedge Overlay:**
-   - Toggle **☑ Failure Wedge** to render the theoretical planar Coulomb active failure wedge propagating upward from the wall heel at angle $\alpha_A = \phi + \arctan\left[\dots\right]$.
-4. **Vector Glyphs (Contact & Bearing Pressure):**
-   - Toggle **☑ Vector Glyphs** to render 3D conical arrows along the back of the stem (lateral thrust direction) and along the base slab (bearing reaction pressure).
-5. **Orthographic Cutting Planes:**
-   - Select **X Cut**, **Y Cut**, or **Z Cut** from the slice dropdown to inspect internal hexahedral stress distributions within the wall core.
+### Visualization Controls Bar
+Located directly above the 3D viewport:
+- **Field Selector:** Switch between **Tensile Stress (MPa)**, **Von Mises Stress (MPa)**, and **Pore Pressure (kPa)**.
+- **Colormap:** Choose between `plasma`, `viridis`, `coolwarm`, and `magma`.
+- **Warp Factor:** Adjust the spinbox ($0\times$ to $50\times$) to visually exaggerate dynamic flexural bending and sliding displacements.
+- **Feature Toggles:**
+  - **☑ Soil:** Show/hide semi-transparent backfill and foundation soil beds.
+  - **☑ Water:** Show/hide the translucent blue water table plane with dynamic waves.
+  - **☑ Failure Wedge:** Render the active Coulomb/Mononobe-Okabe failure wedge propagating from the wall heel.
+  - **☑ Pressure Glyphs:** Display 3D directional arrow cones indicating lateral earth thrust and base bearing pressure.
+- **Orthographic Cutting Plane (Slice Tool):**
+  - Select **X Cut**, **Y Cut**, or **Z Cut** from the slice dropdown.
+  - Move the **Slice Slider** ($0\%$ to $100\%$) to cut a cross-section through the wall core and inspect internal stresses.
 
 ---
 
-## 6. 2D Waveform Dashboard & Transport Controls
+## 6. 2D Waveform Dashboard & Dynamic Safety Badges
 
-The bottom dashboard displays real-time time-series plots using `pyqtgraph`:
+Located on the **📊 Seismic Waveforms & Dynamics** tab:
 
-```
-+──────────────────────────────────────────────────────────────────────────────────────────────────+
-| Transport: [▶ Play / ⏸ Pause] [⏮ Step Back] [⏭ Step Fwd] [🔁 Loop] [Speed: 1.0x ▼] [t = 2.45 s]   |
-+────────────────────────────────────────────────────────┬─────────────────────────────────────────+
-| Ground Acceleration a(t) [g]                          | 3-STATE GEOTECHNICAL SAFETY STATUS      |
-| ──/\──\/──/\──────── (Cyan: #00a6fb)                  | ─────────────────────────────────────── |
-| Permanent Sliding Displacement u(t) [cm]               | Base Sliding:     1.42 [SAFE] (Green)   |
-| ─────────/─────────── (Orange: #ff6b35)               | Overturning:      2.18 [SAFE] (Green)   |
-| Coupled Pore Pressure u_w(t) [kPa]                     | Bearing Capacity: 2.85 [SAFE] (Green)   |
-| ────/─────────────── (Green: #06d6a0)                 | Dynamic Thrust:   148.5 kN/m            |
-| Vertical Playhead Line: Interactive Scrubber           | Stem State:       ELASTIC (1.85 MPa)    |
-+────────────────────────────────────────────────────────┴─────────────────────────────────────────+
-```
+### 3-State Geotechnical Safety Badges
+Safety factors evaluate in real time against code thresholds:
+- 🟢 **SAFE (Green):** $FS \ge FS_{\text{req}}$ (e.g. $FS_{\text{sliding}} \ge 1.12$, $FS_{\text{overturn}} \ge 1.20$, $FS_{\text{bearing}} \ge 2.00$).
+- 🟡 **MARGINAL (Yellow):** $1.00 \le FS < FS_{\text{req}}$. Design operates close to capacity.
+- 🔴 **FAIL (Red):** $FS < 1.00$. Active structural failure or sliding instability.
 
-### 3-State Safety Badge Machine
-
-Safety metrics evaluate in real time against international code thresholds (Eurocode 7, AASHTO, IS 14458):
-
-- **SAFE (Emerald Green `#06d6a0`):** $FS \ge FS_{\text{req}}$ (e.g. $FS_{\text{sliding}} \ge 1.10$, $FS_{\text{overturn}} \ge 1.50$, $FS_{\text{bearing}} \ge 2.00$).
-- **MARGINAL (Amber Yellow `#ffd166`):** $1.00 \le FS < FS_{\text{req}}$. Design requires monitoring or structural tuning.
-- **FAIL (Crimson Red `#ef476f`):** $FS < 1.00$. Active structural failure or sliding instability predicted.
+### Structural Integrity Monitors
+- **$P_{ae}$ Dynamic Thrust:** Total instantaneous lateral load in $\text{kN/m}$.
+- **Stem Base Tension:** Peak tensile bending stress in concrete. Flashes red with **`[CRACKED]`** if tension exceeds the concrete rupture modulus ($f_{cr} = 0.7\sqrt{f_{ck}}$), or green with **`[ELASTIC]`** if uncracked.
 
 ---
 
 ## 7. Project Archiving, CAD Mesh Export & PDF Reports
 
-### 7.1 Unified Project Sessions (`.o3d` Packages)
-
-orang3D projects save as single `.o3d` archive bundles containing:
+### Unified Project Sessions (`.o3d` Bundles)
+orang3D sessions save as single `.o3d` archive bundles containing:
 - `project.json`: All geometry, soil strata, seismic inputs, analysis results, and schema version metadata.
 - `simulation.h5`: GZIP-compressed HDF5 arrays for time, ground acceleration, sliding displacement, and pore pressure.
 
-**To Save a Session:**
-- Press `Ctrl+S` or click **💾 Save** on the toolbar. Choose a destination filename (e.g., `project_site_a.o3d`).
+- **To Save a Session:** Press `Ctrl+S` or click **💾 Save** on the toolbar.
+- **To Open a Session:** Press `Ctrl+O` or click **📂 Open** on the toolbar.
 
-**To Open a Session:**
-- Press `Ctrl+O` or click **📂 Open** on the toolbar. Select any `.o3d` file. orang3D automatically deserializes all parameters, synchronizes dock panels, updates 2D waveform curves, and reconstructs the 3D scene.
-
-### 7.2 CAD & Simulation Mesh Export Suite
-
-From the top **Export** menu, export models to standard engineering formats:
-
-- **`.vtk` (ParaView / VisIt):** Exports 3D hexahedral solid meshes with nodal coordinates, cell connectivity, and scalar stress fields for scientific post-processing.
-- **`.stl` (3D CAD / 3D Printing):** Extracts the external boundary triangulated surface for import into SolidWorks, AutoCAD, or 3D printers.
-- **`.obj` (Wavefront Polygonal Mesh):** Standard 3D polygonal mesh with surface normals for Blender, WebGL, or digital twins.
-- **`.csv` (RFC-4180 Waveform Table):** Exports dynamic time-history curves ($t$, $a(t)$, $u(t)$, $u_w(t)$) in 8-decimal scientific notation (`.8e`).
-
-### 7.3 Automated Geotechnical PDF Report Generation
-
-orang3D generates publication-grade calculation reports offscreen without requiring external LaTeX installations:
-
-1. Click **📄 PDF Report** on the toolbar or press `Ctrl+P`.
-2. Select output path (e.g. `retaining_wall_calculation_report.pdf`).
-3. In $< 0.4\text{ seconds}$, a multi-page PDF ($> 75\text{ KB}$) is generated containing:
-   - **Executive Metadata Header:** Project name, timestamp, and schema version.
-   - **Dimensioned Cross-Section Diagram:** High-resolution embedded vector diagram showing stem, toe, heel, footing, shear key, groundwater elevation, dynamic active thrust $P_{ae}$ with application height, and bearing pressure distribution.
-   - **Input Parameters Tables:** Geometry, Backfill properties, Foundation subgrade, Seismic PGA.
-   - **Factors of Safety Summary:** Sliding, overturning, and bearing safety factors.
-   - **Code Compliance Verification:** Automated pass/fail checks against **Eurocode 7**, **AASHTO LRFD**, and **IS 14458**.
+### 3D CAD Mesh Export Formats
+From the top **Export** menu:
+- **`.vtk` (ParaView / VisIt):** 3D solid mesh with nodal coordinates, element connectivity, and scalar stress fields.
+- **`.stl` (3D CAD / 3D Printing):** Boundary triangulated surface mesh for SolidWorks, Inventor, or 3D printers.
+- **`.obj` (Wavefront Polygonal Mesh):** Standard 3D polygonal mesh with surface normals for Blender or WebGL digital twins.
+- **`.csv` (RFC-4180 Waveform Table):** Dynamic time-history curves ($t$, $a(t)$, $u(t)$, $u_w(t)$) in 8-decimal scientific notation.
 
 ---
 
@@ -373,52 +429,76 @@ orang3D generates publication-grade calculation reports offscreen without requir
 $$K_{ae} = \frac{\cos^2(\phi - \theta_e - \theta)}{\cos\theta_e \cos^2\theta \cos(\delta + \theta + \theta_e) \left[1 + \sqrt{\frac{\sin(\phi + \delta)\sin(\phi - \theta_e - \beta)}{\cos(\delta + \theta + \theta_e)\cos(\beta - \theta)}}\right]^2}$$
 
 Where:
-- $\phi$: Internal soil friction angle.
+- $\phi$: Soil internal friction angle.
 - $\delta$: Wall-soil interface friction angle ($\approx \frac{2}{3}\phi$).
 - $\theta$: Wall backface inclination from vertical ($0^\circ$ for vertical).
 - $\beta$: Backfill slope angle from horizontal.
 - $\theta_e = \arctan\left(\frac{k_h}{1 - k_v}\right)$: Seismic inertia angle.
 
-### 8.2 Seed & Whitman Dynamic Partitioning
+### 8.2 Modified Terzaghi/Handy Horizontal Soil Arching
 
-$$\Delta K_{ae} = K_{ae} - K_a \approx \frac{3}{4} k_h$$
+$$\sigma_h(z) = \left[\frac{\gamma L_{\text{bay}} - 2c}{2 \tan\phi}\right] \left[1 - \exp\left(-\frac{2 K_a \tan\phi \cdot z}{L_{\text{bay}}}\right)\right]$$
 
-$$P_{ae} = P_a + \Delta P_{ae} = \frac{1}{2}\gamma H^2 K_a + \frac{1}{2}\gamma H^2 \Delta K_{ae}(1 - k_v)$$
+Between vertical piers spaced at $L_{\text{bay}} / R \le 1.0$, soil arching reduces active lateral thrust by $30\% - 65\%$.
 
-Thrust application height:
-$$h_{ae} = \frac{P_a \cdot (H / 3) + \Delta P_{ae} \cdot (0.60 H)}{P_{ae}}$$
-
-### 8.3 Newmark Permanent Sliding Block Double Integration
+### 8.3 Newmark (1965) Permanent Sliding Block Integration
 
 $$\ddot{u}(t) = \begin{cases} [a(t) - k_y \cdot g] & \text{if } a(t) > k_y \cdot g \text{ or } \dot{u}(t) > 0 \\ 0 & \text{otherwise} \end{cases}$$
 
 $$u(t) = \int_0^t \dot{u}(\tau)\,d\tau \quad \text{where } \dot{u}(t) = \int_0^t \ddot{u}(\tau)\,d\tau \ge 0$$
 
-### 8.4 Meyerhof Ultimate Bearing Capacity
+### 8.4 IS 456:2000 Concrete Limit States
 
-$$q_{\text{ult}} = c N_c s_c i_c + q N_q s_q i_q + \frac{1}{2}\gamma B' N_\gamma s_\gamma i_\gamma$$
+- **Ultimate Flexural Resistance (Cl. 38.1):**
+  $$M_{u,\text{lim}} = 0.36 \frac{x_{u,\max}}{d} \left(1 - 0.42 \frac{x_{u,\max}}{d}\right) b d^2 f_{ck}$$
+- **Nominal Shear Stress (Cl. 40):**
+  $$\tau_v = \frac{V_u}{b d} \le \tau_c \quad \text{and} \quad \tau_v \le \tau_{c,\max}$$
+- **Surface Crack Width Limit (Annex F):**
+  $$w_{cr} = \frac{3 a_{cr} \epsilon_m}{1 + 2\left(\frac{a_{cr} - c_{\min}}{h - x}\right)} \le 0.10\text{ mm} \text{ (aggressive environmental exposure)}$$
 
-$$e = \frac{B}{2} - \frac{M_R - M_O}{V} \quad \implies \quad B' = B - 2e$$
+### 8.5 IS 2911:2010 Bored Pile Capacities
 
-$$q_{\max,\min} = \frac{V}{B} \left(1 \pm \frac{6e}{B}\right) \quad (\text{for } e \le B/6)$$
+- **Static Axial Compression (Appendix B):**
+  $$Q_u = Q_b + Q_s = \frac{\pi D_p^2}{4} \left(c N_c + \sigma'_v N_q\right) + \pi D_p \sum \alpha c_a \Delta L$$
+- **Depth of Virtual Fixity (Appendix C):**
+  $$T = \left(\frac{E_p I_p}{\eta_h}\right)^{1/5} \quad \implies \quad L_f \approx 2.0 T \text{ to } 2.4 T$$
+
+### 8.6 IS 800:2007 Structural Steel Strut Buckling
+
+- **Design Compressive Strength (Cl. 7.1.2):**
+  $$P_d = A_e f_{cd} \quad \text{where } f_{cd} = \frac{f_y / \gamma_{m0}}{\phi + \left[\phi^2 - \lambda^2\right]^{0.5}}$$
+  $$\phi = 0.5 \left[1 + \alpha(\lambda - 0.2) + \lambda^2\right], \quad \lambda = \sqrt{\frac{f_y}{f_{cr}}}, \quad f_{cr} = \frac{\pi^2 E}{(KL/r)^2}$$
+  For Circular Hollow Sections (CHS), Buckling Class 'a' applies with imperfection factor $\alpha = 0.21$.
 
 ---
 
-## 9. Troubleshooting & FAQs
+## 9. Troubleshooting & Frequently Asked Questions (FAQs)
 
-### Q1: Why does the 3D Viewport show a black or blank screen on Linux?
-- **Cause:** Some Linux distributions require Mesa software rendering when running under Wayland or virtualized environments.
-- **Fix:** Launch with software OpenGL fallback:
+### Q1: The 3D Viewport is completely blank or black on Linux. How do I fix it?
+- **Cause:** Some Linux environments running Wayland or running without discrete GPU drivers have issues with hardware OpenGL initialization in PyVista.
+- **Fix:** Launch orang3D using software rendering fallback:
   ```bash
-  LIBGL_ALWAYS_SOFTWARE=1 python3 main.py
+  LIBGL_ALWAYS_SOFTWARE=1 python main.py
   ```
 
-### Q2: What causes the Sliding Safety Badge to show "FAIL" (Red)?
-- **Cause:** Either seismic acceleration $k_h$ is too severe, the water table has caused hydrostatic thrust and buoyancy loss, or base width $B$ is too narrow.
-- **Fix:** Increase heel length $B_{\text{heel}}$ to add stabilizing dead weight of soil, add a shear key ($0.5\text{ m}$ to $1.0\text{ m}$ depth), or improve foundation friction $\phi_f$.
+### Q2: Why is the Sliding Safety Badge showing red "FAIL"?
+- **Cause:** High seismic acceleration $k_h$, a rising groundwater table causing buoyancy loss, or insufficient foundation friction.
+- **Fix:** 
+  1. Increase **Heel Width** in the Cantilever tab (adding stabilizing soil dead weight).
+  2. Add a **Shear Key** ($0.5\text{ m} - 1.0\text{ m}$ depth) in the Cantilever tab.
+  3. If using the curved wall system, increase bored pile embedment length $L_{\text{pile}}$ and rock socketing depth.
 
-### Q3: How do I know if the Kratos FEA simulation converged?
-- Look at the bottom status bar and final popup dialog. It will state `Kratos FEA Completed: 400 steps solved! Max Crest Deflection: X.XX cm`. If divergent, an alert will display the physical non-convergence point.
+### Q3: When I click "▶ Play Seismic Wave", nothing seems to move. Why?
+- **Cause 1:** Ground acceleration might be very low ($k_h \le 0.05\text{ g}$), so wall bending is too small to see with the naked eye.
+  - **Fix:** Increase the **Warp:** spinbox in the viewport toolbar from `1.0×` to `5.0×` or `10.0×` to visually exaggerate oscillations.
+- **Cause 2:** The playhead may have reached the end of the record and looping is turned off.
+  - **Fix:** Check **🔁 Loop** in the transport bar or click **⏮ Step** to rewind to $t = 0$.
 
-### Q4: Can I import my own recorded earthquake data?
-- **Yes.** Select `Load Historical .AT2 Record...` from the Disaster tab. orang3D parses standard PEER Ground Motion Database `.AT2` files, automatically parsing time-step $dt$, performing linear baseline correction, and applying a 4th-order Butterworth filter ($0.1\text{ Hz} - 25\text{ Hz}$).
+### Q4: How do I load my own earthquake ground motion data?
+- **Yes.** On the **Disaster / Seismic** tab, select **Load Historical .AT2 Record...** and click **Select .AT2 Record File**. orang3D automatically parses PEER NGA/COSMOS `.AT2` files, extracts the sampling interval $dt$, removes linear baselines, and applies a Butterworth bandpass filter ($0.1 - 25\text{ Hz}$).
+
+### Q5: Can I open the exported `.dxf` file in AutoCAD or Civil 3D?
+- **Yes.** The exported `.dxf` file is formatted to the standard AutoCAD R2000 (`AC1015`) specification with standard AutoCAD Color Index (ACI) codes. All layers (`WALL_OUTLINE`, `REBAR_REINFORCEMENT`, `STRUT_DETAILS`, `DIMENSIONS_AND_TEXT`) are fully preserved and editable in AutoCAD, Civil 3D, SolidWorks, and LibreCAD.
+
+### Q6: How do I know if the Kratos FEA simulation has converged?
+- Look at the bottom status bar and completion popup dialog. It will report `Kratos FEA Completed: 400 steps solved! Max Crest Deflection: X.XX cm`. If divergent, an alert will display the physical non-convergence step and reason.

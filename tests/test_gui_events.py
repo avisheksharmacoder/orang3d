@@ -170,8 +170,18 @@ def test_main_window_save_and_open_session(qapp, monkeypatch, tmp_path):
 def test_app_main_entrypoint(monkeypatch):
     """Verifies orang3d.main entry point boots and creates MainWindow."""
     from orang3d.main import main
+    created_windows = []
+    orig_init = MainWindow.__init__
+    def tracking_init(self, *args, **kwargs):
+        orig_init(self, *args, **kwargs)
+        created_windows.append(self)
+    monkeypatch.setattr(MainWindow, "__init__", tracking_init)
     monkeypatch.setattr("PySide6.QtWidgets.QApplication.exec", lambda self: 0)
     monkeypatch.setattr("sys.exit", lambda code=0: None)
-    main()
+    try:
+        main()
+    finally:
+        for w in created_windows:
+            w.close()
 
 

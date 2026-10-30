@@ -15,6 +15,12 @@ from .mesh_export import (
     export_signals_to_csv,
 )
 from .report_generator import generate_engineering_pdf_report
+from .dxf_export import (
+    RetainingWallDXFExporter,
+    export_retaining_wall_dxf,
+    EZDXF_AVAILABLE,
+    DXF_LAYERS,
+)
 
 __all__ = [
     "save_project_session",
@@ -26,4 +32,8 @@ __all__ = [
     "export_mesh_to_obj",
     "export_signals_to_csv",
     "generate_engineering_pdf_report",
+    "RetainingWallDXFExporter",
+    "export_retaining_wall_dxf",
+    "EZDXF_AVAILABLE",
+    "DXF_LAYERS",
 ]
