@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=orang3D
+GenericName=Retaining Wall Seismic & SSI Analyzer
+Comment=Real-Time 3D Seismic, Hydrodynamic, and Geotechnical Soil-Structure Interaction Simulation
+Exec=orang3d %F
+Icon=orang3d
+Terminal=false
+Categories=Science;Engineering;Physics;Geology;Qt;
+MimeType=application/x-orang3d;
+Keywords=geotechnical;earthquake;seismic;retaining wall;mononobe-okabe;soil-structure-interaction;simulation;
+StartupNotify=true
+StartupWMClass=orang3D

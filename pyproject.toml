@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orang3d"
+version = "0.1.0"
+description = "Real-time 3D Seismic and Disaster Analysis of Retaining Walls"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "orang3D Developers"}
+]
+keywords = ["geotechnical", "earthquake", "seismic", "retaining-wall", "pyvista", "pyside6", "kratos", "soil-structure-interaction"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+    "PySide6>=6.6.0",
+    "pyvista>=0.43.0",
+    "pyvistaqt>=0.11.0",
+    "pyqtgraph>=0.13.0",
+    "numpy>=1.26.0",
+    "scipy>=1.12.0",
+    "h5py>=3.10.0",
+    "meshio>=5.3.0",
+    "matplotlib>=3.8.0",
+    "KratosMultiphysics>=10.0.0; platform_system == 'Linux'",
+    "KratosGeoMechanicsApplication>=10.0.0; platform_system == 'Linux'",
+]
+
+[project.optional-dependencies]
+kratos = [
+    "KratosMultiphysics>=10.0.0",
+    "KratosGeoMechanicsApplication>=10.0.0",
+]
+all = [
+    "orang3d[kratos]",
+]
+
+[project.scripts]
+orang3d = "orang3d.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
