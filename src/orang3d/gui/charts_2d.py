@@ -21,6 +21,7 @@ from PySide6.QtCore import Qt, Signal
 
 from ..config import THEME, SAFETY_THRESHOLDS
 from ..models.wall_params import AnalysisResults
+from ..units import UnitSystem, from_si_value, unit_label
 
 
 class Charts2DWidget(QWidget):
@@ -38,6 +39,12 @@ class Charts2DWidget(QWidget):
         super().__init__(parent)
         self.current_playhead_t: float = 0.0
         self._is_playing: bool = False
+        self.unit_system: UnitSystem = UnitSystem.SI
+        self._raw_time: np.ndarray = np.array([])
+        self._raw_accel: np.ndarray = np.array([])
+        self._raw_slip: np.ndarray = np.array([])
+        self._raw_pore: Optional[np.ndarray] = None
+        self._last_results: Optional[AnalysisResults] = None
 
         # Master horizontal layout: Left = Transport Bar + 3 Waveform Plots, Right = Safety Badges
         master_layout = QHBoxLayout(self)
@@ -312,6 +319,22 @@ class Charts2DWidget(QWidget):
         self.pore_scrubber.setValue(t)
         self.lbl_time.setText(f"t = {t:.2f} s")
 
+    def set_unit_system(self, unit_system: UnitSystem | str) -> None:
+        """Switches 2D plot axis units and summary card demands between SI and Imperial."""
+        self.unit_system = UnitSystem(unit_system)
+        self.slip_plot_widget.setLabel("left", "Permanent Slip", units=unit_label("disp_cm", self.unit_system))
+        self.pore_plot_widget.setLabel("left", "Pore Pressure", units=unit_label("pressure", self.unit_system))
+        if len(self._raw_time) > 0:
+            self.update_signals(
+                self._raw_time,
+                self._raw_accel,
+                self._raw_slip,
+                pore_arr=self._raw_pore,
+                playhead_t=self.current_playhead_t,
+            )
+        if self._last_results is not None:
+            self.update_safety_metrics(self._last_results)
+
     def update_signals(
         self,
         time_arr: np.ndarray,
@@ -322,16 +345,24 @@ class Charts2DWidget(QWidget):
     ):
         """
         Updates 2D accelerogram, Newmark displacement, and pore-water pressure curves at 60 FPS.
+        Expects canonical SI inputs (`slip_arr` in cm, `pore_arr` in kPa) and converts for display.
         """
-        self.accel_curve.setData(time_arr, accel_arr)
-        self.slip_curve.setData(time_arr, slip_arr)
+        self._raw_time = np.asarray(time_arr)
+        self._raw_accel = np.asarray(accel_arr)
+        self._raw_slip = np.asarray(slip_arr)
+        self._raw_pore = None if pore_arr is None else np.asarray(pore_arr)
 
-        if pore_arr is not None:
-            self.pore_curve.setData(time_arr, pore_arr)
-        elif len(time_arr) > 0:
-            # Synthesize representative excess pore-pressure generation curve if not supplied
-            u_synth = 30.0 + 25.0 * (1.0 - np.exp(-0.3 * time_arr))
-            self.pore_curve.setData(time_arr, u_synth)
+        slip_disp = self._raw_slip * from_si_value(1.0, "disp_cm", self.unit_system)
+        self.accel_curve.setData(self._raw_time, self._raw_accel)
+        self.slip_curve.setData(self._raw_time, slip_disp)
+
+        if self._raw_pore is not None:
+            pore_disp = self._raw_pore * from_si_value(1.0, "pressure", self.unit_system)
+            self.pore_curve.setData(self._raw_time, pore_disp)
+        elif len(self._raw_time) > 0:
+            u_synth = 30.0 + 25.0 * (1.0 - np.exp(-0.3 * self._raw_time))
+            pore_disp = u_synth * from_si_value(1.0, "pressure", self.unit_system)
+            self.pore_curve.setData(self._raw_time, pore_disp)
 
         self.set_playhead(playhead_t)
 
@@ -342,6 +373,8 @@ class Charts2DWidget(QWidget):
         - Marginal: Amber (#ffd166) when 1.0 <= FS < FS_req
         - Failure: Red (#ef476f) when FS < 1.0
         """
+        self._last_results = results
+
         def format_badge(name: str, val: float, req: float) -> str:
             if val >= req:
                 color = THEME["accent_green"]
@@ -375,11 +408,15 @@ class Charts2DWidget(QWidget):
         self.badge_bearing.setText(format_badge("Bearing", results.fs_bearing, req_b))
 
         # Dynamic Thrust Demand
-        self.lbl_thrust.setText(f"P_ae Dynamic Thrust: <b>{results.total_thrust:.1f} kN/m</b>")
+        p_disp = from_si_value(results.total_thrust, "force_per_m", self.unit_system)
+        p_unit = unit_label("force_per_m", self.unit_system)
+        self.lbl_thrust.setText(f"P_ae Dynamic Thrust: <b>{p_disp:.2f} {p_unit}</b>")
 
         # Stem Concrete Tensile Stress & Cracking Modulus Flag
+        stress_disp = from_si_value(results.concrete_tensile_stress, "stress_mpa", self.unit_system)
+        s_unit = unit_label("stress_mpa", self.unit_system)
         stress_color = THEME["accent_red"] if results.cracking_predicted else THEME["text_primary"]
         crack_flag = " <span style='color:#ef476f; font-weight:bold;'>[CRACKED]</span>" if results.cracking_predicted else " <span style='color:#06d6a0;'>[ELASTIC]</span>"
         self.lbl_stress.setText(
-            f"Stem Base Tension: <b style='color:{stress_color};'>{results.concrete_tensile_stress:.2f} MPa</b>{crack_flag}"
+            f"Stem Base Tension: <b style='color:{stress_color};'>{stress_disp:.2f} {s_unit}</b>{crack_flag}"
         )

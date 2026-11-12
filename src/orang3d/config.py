@@ -78,6 +78,7 @@ class RegionalStandard(str, Enum):
     EUROCODE_7 = "eurocode_7"
     AASHTO_LRFD = "aashto_lrfd"
     IS_14458 = "is_14458"
+    ACI_318 = "aci_318"
     STANDARD = "standard"
 
 
@@ -112,6 +113,14 @@ REGIONAL_SAFETY_STANDARDS: Dict[RegionalStandard, Dict[str, float]] = {
         "sliding_seismic": 1.2,
         "overturning_static": 2.0,
         "overturning_seismic": 1.5,
+        "bearing_static": 3.0,
+        "bearing_seismic": 2.0,
+    },
+    RegionalStandard.ACI_318: {
+        "sliding_static": 1.5,
+        "sliding_seismic": 1.1,
+        "overturning_static": 2.0,
+        "overturning_seismic": 1.2,
         "bearing_static": 3.0,
         "bearing_seismic": 2.0,
     },

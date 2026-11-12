@@ -32,14 +32,34 @@ from .hybrid_assembler import (
 from .terrain import (
     TerrainRaster,
     DrapedWallAlignment,
+    WallCutProfile,
     read_geotiff_dem,
     write_geotiff_dem,
     read_ascii_grid,
     write_ascii_grid,
     read_xyz_point_cloud,
+    read_obj_terrain,
+    load_terrain_file,
     generate_synthetic_slope,
     drape_wall_on_terrain,
+    auto_profile_wall_along_terrain,
     RASTERIO_AVAILABLE,
+)
+from .continuum_fea_mesher import (
+    ContinuumInterfacePair,
+    LysmerBoundaryNode,
+    ContinuumFEAMesh,
+    build_continuum_fea_mesh,
+)
+from .arch_wall_mesher import (
+    build_stepped_terraced_wall_mesh,
+    build_corner_wingwall_mesh,
+    build_counterfort_wall_mesh,
+    build_curved_plan_wall_mesh,
+    build_mse_gabion_wall_mesh,
+    build_architectural_wall_mesh,
+    build_surcharge_3d_meshes,
+    verify_arch_mesh_jacobians,
 )
 
 __all__ = [
@@ -71,12 +91,30 @@ __all__ = [
     # Hill-Slope Topography & DEM Raster Ingestion (v2 Phase 5)
     "TerrainRaster",
     "DrapedWallAlignment",
+    "WallCutProfile",
     "read_geotiff_dem",
     "write_geotiff_dem",
     "read_ascii_grid",
     "write_ascii_grid",
     "read_xyz_point_cloud",
+    "read_obj_terrain",
+    "load_terrain_file",
     "generate_synthetic_slope",
     "drape_wall_on_terrain",
+    "auto_profile_wall_along_terrain",
     "RASTERIO_AVAILABLE",
+    # 3D Continuum FEA Mesher (v3 Phase 3)
+    "ContinuumInterfacePair",
+    "LysmerBoundaryNode",
+    "ContinuumFEAMesh",
+    "build_continuum_fea_mesh",
+    # Architectural Wall Morphologies & Surcharge Blocks (v3 Phase 7)
+    "build_stepped_terraced_wall_mesh",
+    "build_corner_wingwall_mesh",
+    "build_counterfort_wall_mesh",
+    "build_curved_plan_wall_mesh",
+    "build_mse_gabion_wall_mesh",
+    "build_architectural_wall_mesh",
+    "build_surcharge_3d_meshes",
+    "verify_arch_mesh_jacobians",
 ]

@@ -103,6 +103,11 @@ def evaluate_wall_stability(
     geom: RetainingWallGeometry,
     soil: SoilProperties,
     seismic: SeismicParams,
+    extra_thrust_kn_per_m: float = 0.0,
+    extra_thrust_height_m: float = 0.0,
+    extra_heel_load_kn_per_m: float = 0.0,
+    extra_stem_thrust_kn_per_m: float = 0.0,
+    extra_stem_moment_knm_per_m: float = 0.0,
 ) -> AnalysisResults:
     """
     Evaluates complete static and seismic limit-equilibrium stability of the retaining wall.
@@ -164,7 +169,7 @@ def evaluate_wall_stability(
 
     # Total Weights
     w_concrete = w_footing + w_stem_rect + w_stem_tri + w_key
-    total_vertical_dead = w_concrete + w_soil_heel
+    total_vertical_dead = w_concrete + w_soil_heel + extra_heel_load_kn_per_m
 
     # Effective vertical load under vertical seismic acceleration (1 - kv)
     kv_factor = max(0.1, 1.0 - seismic.vertical_pga)
@@ -191,11 +196,17 @@ def evaluate_wall_stability(
         + w_stem_rect * x_stem_rect * kv_factor
         + w_stem_tri * x_stem_tri * kv_factor
         + w_key * x_key * kv_factor
-        + w_soil_heel * x_soil_heel * kv_factor
+        + (w_soil_heel + extra_heel_load_kn_per_m) * x_soil_heel * kv_factor
     )
 
     # Overturning Moments (Counter-clockwise around toe)
-    M_OT_thrust = total_thrust * thrust_h
+    combined_thrust = total_thrust + max(0.0, extra_thrust_kn_per_m)
+    combined_moment_thrust = (total_thrust * thrust_h) + (
+        max(0.0, extra_thrust_kn_per_m) * max(0.0, extra_thrust_height_m)
+    )
+    combined_thrust_h = combined_moment_thrust / combined_thrust if combined_thrust > 1e-6 else thrust_h
+
+    M_OT_thrust = combined_moment_thrust
     wall_inertia_force = w_concrete * seismic.horizontal_pga
     M_OT_inertia = wall_inertia_force * y_cg_wall
     M_OT = max(1e-3, M_OT_thrust + M_OT_inertia)
@@ -226,7 +237,7 @@ def evaluate_wall_stability(
         p_passive += p_key_passive
 
     resisting_slide = V_effective * f_friction + cohesion_force + p_passive
-    driving_slide = max(1e-3, total_thrust + wall_inertia_force)
+    driving_slide = max(1e-3, combined_thrust + wall_inertia_force)
     fs_sliding = float(resisting_slide / driving_slide)
 
     # C. Bearing Capacity & Contact Pressure
@@ -271,8 +282,8 @@ def evaluate_wall_stability(
         kv=seismic.vertical_pga,
     )
     stem_inertia = (w_stem_rect + w_stem_tri) * seismic.horizontal_pga
-    max_moment = (p_stem_thrust * h_stem_thrust) + (stem_inertia * (h_stem / 3.0))
-    max_shear = p_stem_thrust + stem_inertia
+    max_moment = (p_stem_thrust * h_stem_thrust) + (stem_inertia * (h_stem / 3.0)) + max(0.0, extra_stem_moment_knm_per_m)
+    max_shear = p_stem_thrust + stem_inertia + max(0.0, extra_stem_thrust_kn_per_m)
 
     # Elastic flexural tensile stress at stem base: sigma = M / Z
     section_modulus = (1.0 * (t_base ** 2)) / 6.0
@@ -283,8 +294,8 @@ def evaluate_wall_stability(
         k_ae=round(k_ae, 4),
         k_a_static=round(k_a, 4),
         delta_k_ae=round(delta_k_ae, 4),
-        total_thrust=round(total_thrust, 2),
-        thrust_height=round(thrust_h, 2),
+        total_thrust=round(combined_thrust, 2),
+        thrust_height=round(combined_thrust_h, 2),
         water_thrust=round(p_water, 2),
         fs_sliding=round(fs_sliding, 3),
         fs_overturning=round(fs_overturning, 3),

@@ -1,39 +1,80 @@
 """
-PySide6 Engineering Audit Tab displaying live Indian Standards (IS Code) compliance checklist (Phase 10).
+PySide6 Engineering Design Audit Tab (v3 Phase 6).
+
+Supports switching seamlessly across international design codes:
+  - Indian Standards (IS 456:2000, IS 2911, IS 800:2007, IS 1893:2016, IS 14458)
+  - Eurocode 7 & 8 (EN 1997-1 DA1-C1/C2, EN 1998-5, EN 1992-1-1)
+  - AASHTO LRFD Bridge Design Specifications (Strength I & Extreme Event I)
+  - ACI 318-19 Building Code Requirements for Structural Concrete
+
+Also respects the active UI UnitSystem (SI vs. Imperial) for demand/capacity display
+while evaluating every code limit state canonically in SI.
 """
 
-from typing import Optional
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget,
-    QTableWidgetItem, QPushButton, QHeaderView, QFileDialog, QMessageBox
-)
+from __future__ import annotations
+
+from typing import Optional, Union
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from ...physics.is_codes.audit_engine import EngineeringAuditReport, run_full_retaining_wall_is_audit
+from ...config import RegionalStandard
 from ...models.is_code_params import IndianDesignStandards
+from ...physics.code_auditor import (
+    DesignCodeAuditor,
+    MultiCodeAuditReport,
+    STANDARD_LABELS,
+)
+from ...physics.is_codes.audit_engine import EngineeringAuditReport
+from ...units import UnitSystem
 
 
-class ISDesignAuditTab(QWidget):
+class DesignAuditTab(QWidget):
     """
-    Live engineering compliance checklist displaying IS 456, IS 2911, and IS 800
-    demand-to-capacity unity ratios with color-coded status badges:
-    - Green (UR <= 0.90): PASS
-    - Yellow (0.90 < UR <= 1.00): WARNING
-    - Red (UR > 1.00): FAIL
+    Live multi-code engineering compliance checklist with Design Code Selector
+    and dynamic SI/Imperial unit formatting.
     """
+
+    standardChanged = Signal(RegionalStandard)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.current_report: Optional[EngineeringAuditReport] = None
+        self.current_standard: RegionalStandard = RegionalStandard.IS_14458
+        self.unit_system: UnitSystem = UnitSystem.SI
+        self.current_report: Optional[Union[EngineeringAuditReport, MultiCodeAuditReport]] = None
+        self._last_ctx: dict = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
 
-        # 1. Status Banner
+        # 1. Top Bar: Code Selector + Status Banner + Export
         banner_layout = QHBoxLayout()
+        banner_layout.addWidget(QLabel("Design Code:"))
+        self.combo_standard = QComboBox()
+        for std in (
+            RegionalStandard.IS_14458,
+            RegionalStandard.EUROCODE_7,
+            RegionalStandard.AASHTO_LRFD,
+            RegionalStandard.ACI_318,
+        ):
+            self.combo_standard.addItem(STANDARD_LABELS[std], std)
+        self.combo_standard.currentIndexChanged.connect(self._on_standard_changed)
+        banner_layout.addWidget(self.combo_standard)
+
         self.lbl_overall = QLabel("Overall Compliance Status: INITIALIZING...")
-        self.lbl_overall.setFont(QFont("Arial", 11, QFont.Bold))
+        self.lbl_overall.setFont(QFont("Arial", 10, QFont.Bold))
         banner_layout.addWidget(self.lbl_overall)
         banner_layout.addStretch()
 
@@ -46,8 +87,8 @@ class ISDesignAuditTab(QWidget):
         # 2. Compliance Table Widget
         self.table = QTableWidget()
         headers = [
-            "Component", "Design Check", "IS Clause", "Demand", "Capacity",
-            "Unit", "Unity Ratio (UR)", "Status", "Detailing / Remarks"
+            "Component", "Design Check", "Code Clause", "Demand", "Capacity",
+            "Unit", "Unity Ratio (UR)", "Status", "Detailing / Remarks",
         ]
         self.table.setColumnCount(len(headers))
         self.table.setHorizontalHeaderLabels(headers)
@@ -58,50 +99,78 @@ class ISDesignAuditTab(QWidget):
         layout.addWidget(self.table)
 
         # Populate initial default report
-        initial_report = run_full_retaining_wall_is_audit(IndianDesignStandards())
-        self.update_audit(report=initial_report)
+        self.update_audit()
+
+    def _on_standard_changed(self):
+        std = self.combo_standard.currentData()
+        if std is not None:
+            self.current_standard = RegionalStandard(std)
+            self.standardChanged.emit(self.current_standard)
+            self.update_audit(**self._last_ctx)
+
+    def set_standard(self, standard: Union[RegionalStandard, str]) -> None:
+        """Programmatically selects the active design standard."""
+        std = RegionalStandard(standard) if isinstance(standard, str) else standard
+        idx = self.combo_standard.findData(std)
+        if idx >= 0:
+            self.combo_standard.blockSignals(True)
+            self.combo_standard.setCurrentIndex(idx)
+            self.combo_standard.blockSignals(False)
+        self.current_standard = std
+        self.update_audit(**self._last_ctx)
+
+    def set_unit_system(self, unit_system: Union[UnitSystem, str]) -> None:
+        """Switches demand/capacity display units without mutating unity ratios."""
+        self.unit_system = UnitSystem(unit_system)
+        self._render_current_report()
 
     def update_audit(
         self,
-        report: Optional[EngineeringAuditReport] = None,
+        report: Optional[Union[EngineeringAuditReport, MultiCodeAuditReport]] = None,
+        geom=None,
         shell_geom=None,
         pier_pile_geom=None,
         struts=None,
         soil=None,
         seismic=None,
-        standards=None,
+        results=None,
+        standards: Optional[IndianDesignStandards] = None,
     ):
-        """Refreshes the checklist table with new audit report items or computes from parameters."""
+        """Refreshes the checklist table from an explicit report or active model parameters."""
         if report is None:
-            stds = standards or IndianDesignStandards()
-            p_height = shell_geom.panel_height if shell_geom else 6.0
-            p_thick = shell_geom.thickness if shell_geom else 0.40
-            d_pile = pier_pile_geom.pile_diameter if pier_pile_geom else 1.0
-            l_pile = pier_pile_geom.pile_length if pier_pile_geom else 12.0
-            c_soil = soil.cohesion if soil else 15.0
-            phi_soil = soil.friction_angle if soil else 30.0
-            gamma_soil = soil.unit_weight if soil else 18.5
-            is_seis = (seismic.horizontal_pga > 0.05) if seismic else True
-
-            report = run_full_retaining_wall_is_audit(
-                standards=stds,
-                panel_height_m=p_height,
-                panel_thickness_m=p_thick,
-                pile_diameter_m=d_pile,
-                pile_length_m=l_pile,
-                soil_cohesion_kPa=c_soil,
-                soil_friction_deg=phi_soil,
-                soil_unit_weight_kNm3=gamma_soil,
-                is_seismic=is_seis,
+            self._last_ctx = {
+                "geom": geom,
+                "shell_geom": shell_geom,
+                "pier_pile_geom": pier_pile_geom,
+                "struts": struts,
+                "soil": soil,
+                "seismic": seismic,
+                "results": results,
+                "standards": standards,
+            }
+            report = DesignCodeAuditor.run_audit(
+                standard=self.current_standard,
+                geom=geom,
+                soil=soil,
+                seismic=seismic,
+                results=results,
+                shell_geom=shell_geom,
+                pier_pile_geom=pier_pile_geom,
+                strut_sys=struts,
+                standards=standards,
             )
-
         self.current_report = report
+        self._render_current_report()
 
-        # Update Banner
+    def _render_current_report(self) -> None:
+        """Renders `self.current_report` in the active unit system."""
+        report = self.current_report
+        if report is None:
+            return
+
         status = report.overall_status
         max_ur = report.max_unity_ratio
         gov = report.governing_clause
-
         if status == "PASS":
             self.lbl_overall.setText(f"Overall Compliance: PASSED (Max UR = {max_ur:.3f} | {gov})")
             self.lbl_overall.setStyleSheet("color: #2e7d32; font-weight: bold;")
@@ -112,9 +181,13 @@ class ISDesignAuditTab(QWidget):
             self.lbl_overall.setText(f"Overall Compliance: FAILED (Max UR = {max_ur:.3f} | {gov})")
             self.lbl_overall.setStyleSheet("color: #c62828; font-weight: bold;")
 
-        # Populate Table Rows
-        self.table.setRowCount(len(report.items))
-        for row, item in enumerate(report.items):
+        if isinstance(report, MultiCodeAuditReport):
+            items = report.items_in_units(self.unit_system)
+        else:
+            items = list(report.items)
+
+        self.table.setRowCount(len(items))
+        for row, item in enumerate(items):
             self.table.setItem(row, 0, QTableWidgetItem(item.component))
             self.table.setItem(row, 1, QTableWidgetItem(item.check_title))
             self.table.setItem(row, 2, QTableWidgetItem(item.code_clause))
@@ -122,25 +195,22 @@ class ISDesignAuditTab(QWidget):
             self.table.setItem(row, 4, QTableWidgetItem(f"{item.capacity:.2f}"))
             self.table.setItem(row, 5, QTableWidgetItem(item.unit))
 
-            # Unity Ratio Item
             ur_item = QTableWidgetItem(f"{item.unity_ratio:.3f}")
             ur_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(row, 6, ur_item)
 
-            # Status Badge with Background Color
             status_item = QTableWidgetItem(item.status)
             status_item.setTextAlignment(Qt.AlignCenter)
             status_item.setFont(QFont("Arial", 9, QFont.Bold))
-
             if item.status == "PASS":
-                status_item.setBackground(QColor(232, 245, 233)) # Light green
-                status_item.setForeground(QColor(46, 125, 50))   # Dark green
+                status_item.setBackground(QColor(232, 245, 233))
+                status_item.setForeground(QColor(46, 125, 50))
             elif item.status == "WARNING":
-                status_item.setBackground(QColor(255, 243, 224)) # Light orange
-                status_item.setForeground(QColor(230, 81, 0))    # Dark orange
+                status_item.setBackground(QColor(255, 243, 224))
+                status_item.setForeground(QColor(230, 81, 0))
             else:
-                status_item.setBackground(QColor(255, 235, 238)) # Light red
-                status_item.setForeground(QColor(198, 40, 40))   # Dark red
+                status_item.setBackground(QColor(255, 235, 238))
+                status_item.setForeground(QColor(198, 40, 40))
 
             self.table.setItem(row, 7, status_item)
             self.table.setItem(row, 8, QTableWidgetItem(item.detailing_note))
@@ -149,19 +219,25 @@ class ISDesignAuditTab(QWidget):
         """Exports the markdown calculation sheet to file."""
         if not self.current_report:
             return
-
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Save Engineering Audit Report",
-            "retaining_wall_is_audit_report.md",
-            "Markdown Files (*.md);;Text Files (*.txt)"
+            "retaining_wall_audit_report.md",
+            "Markdown Files (*.md);;Text Files (*.txt)",
         )
         if file_path:
-            md_content = self.current_report.generate_markdown_audit_sheet()
+            if isinstance(self.current_report, MultiCodeAuditReport):
+                md_content = self.current_report.generate_markdown_audit_sheet(self.unit_system)
+            else:
+                md_content = self.current_report.generate_markdown_audit_sheet()
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(md_content)
             QMessageBox.information(
                 self,
                 "Audit Sheet Exported",
-                f"Engineering calculation audit sheet successfully exported to:\n{file_path}"
+                f"Engineering calculation audit sheet successfully exported to:\n{file_path}",
             )
+
+
+# Backward-compatible alias preserved for all earlier phases/tests
+ISDesignAuditTab = DesignAuditTab

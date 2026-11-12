@@ -273,17 +273,23 @@ def test_main_window_dock_synchronization(qapp, monkeypatch, tmp_path: Path):
     window = MainWindow()
 
     # Verify tabs
-    assert window.tabs.count() == 5
+    assert window.tabs.count() == 7
     assert window.tabs.tabText(0) == "Cantilever Wall"
     assert window.tabs.tabText(1) == "Curved Shell"
     assert window.tabs.tabText(2) == "Strut & Piles"
     assert window.tabs.tabText(3) == "Soil Strata"
     assert window.tabs.tabText(4) == "Disaster / Seismic"
+    assert window.tabs.tabText(5) == "Arch. & Surcharge"
+    assert window.tabs.tabText(6) == "Terrain & Studio"
 
     # Verify bottom tabs
-    assert window.bottom_tabs.count() == 2
+    assert window.bottom_tabs.count() == 6
     assert "Seismic Waveforms" in window.bottom_tabs.tabText(0)
-    assert "IS Design Audit" in window.bottom_tabs.tabText(1)
+    assert "Design Audit" in window.bottom_tabs.tabText(1)
+    assert "BNWF & PINN" in window.bottom_tabs.tabText(2)
+    assert "UQ" in window.bottom_tabs.tabText(3)
+    assert "Show the Math" in window.bottom_tabs.tabText(4)
+    assert "Theory vs. FEA" in window.bottom_tabs.tabText(5)
 
     # Change Shell parameters through panel
     window.panel_shell.spin_radius.setValue(4.75)

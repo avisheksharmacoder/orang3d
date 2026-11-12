@@ -34,6 +34,7 @@ from orang3d.io.serialization import (
     CorruptProjectError,
 )
 from orang3d.io.mesh_export import (
+    export_grid_mesh,
     export_mesh_to_vtk,
     export_mesh_to_stl,
     export_mesh_to_obj,
@@ -304,3 +305,41 @@ def test_engineering_pdf_report_generation(qapp, sample_project):
         with open(pdf_path, "rb") as f:
             header = f.read(5)
             assert header.startswith(b"%PDF-")
+
+
+def test_export_grid_mesh_and_unsupported_format(sample_project):
+    """Verifies generic PyVista grid export across VTK/STL/OBJ and error handling."""
+    import pyvista as pv
+
+    box = pv.Box(bounds=(0.0, 2.0, 0.0, 3.0, 0.0, 1.0)).triangulate()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        for ext in ("vtk", "stl", "obj"):
+            out_path = os.path.join(tmp_dir, f"grid_export.{ext}")
+            export_grid_mesh(box, out_path, fmt=ext)
+            assert os.path.exists(out_path)
+            assert os.path.getsize(out_path) > 0
+
+        with pytest.raises(ValueError):
+            export_grid_mesh(box, os.path.join(tmp_dir, "bad.xyz"), fmt="xyz")
+
+
+def test_main_window_mesh_export_dialog(qapp, monkeypatch):
+    """Verifies MainWindow._export_mesh_dialog passes valid arguments to mesh exporters."""
+    from PySide6.QtWidgets import QFileDialog
+    from orang3d.gui.main_window import MainWindow
+
+    win = MainWindow()
+    try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            for ext in ("vtk", "stl", "obj"):
+                out_path = os.path.join(tmp_dir, f"gui_wall.{ext}")
+                monkeypatch.setattr(
+                    QFileDialog,
+                    "getSaveFileName",
+                    lambda *args, _p=out_path, **kwargs: (_p, f"{ext.upper()} Files (*.{ext})"),
+                )
+                win._export_mesh_dialog(ext)
+                assert os.path.exists(out_path)
+                assert os.path.getsize(out_path) > 0
+    finally:
+        win.close()

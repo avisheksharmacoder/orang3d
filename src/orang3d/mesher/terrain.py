@@ -330,21 +330,53 @@ def read_xyz_point_cloud(
     grid_resolution: float = 1.0,
 ) -> TerrainRaster:
     """
-    Parses an XYZ point cloud file (space/comma separated) and interpolates onto a regular grid.
+    Parses an XYZ or CSV survey point cloud file (comma/tab/whitespace separated,
+    with optional text header) and interpolates onto a regular grid.
     """
-    points = np.loadtxt(filepath, delimiter=None, dtype=np.float64)
-    if points.ndim != 2 or points.shape[1] < 3:
-        raise ValueError(f"XYZ file must contain at least 3 columns (X, Y, Z), got shape {points.shape}")
+    rows: List[Tuple[float, float, float]] = []
+    short_numeric_cols: Optional[int] = None
+    with open(filepath, "r", encoding="utf-8") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            tokens = [tok for tok in line.replace(",", " ").replace(";", " ").split() if tok]
+            if len(tokens) < 3:
+                try:
+                    _ = [float(t) for t in tokens]
+                    short_numeric_cols = len(tokens)
+                except ValueError:
+                    pass
+                continue
+            try:
+                rows.append((float(tokens[0]), float(tokens[1]), float(tokens[2])))
+            except ValueError:
+                # Skip header rows (e.g., "X,Y,Z")
+                continue
 
-    x_raw = points[:, 0]
-    y_raw = points[:, 1]
-    z_raw = points[:, 2]
+    if not rows and short_numeric_cols is not None:
+        raise ValueError(
+            f"XYZ file must contain at least 3 columns (X, Y, Z), got {short_numeric_cols}"
+        )
+    if len(rows) < 3:
+        raise ValueError(f"XYZ/CSV file must contain at least 3 numeric (X, Y, Z) rows: {filepath}")
 
+    points = np.asarray(rows, dtype=np.float64)
+    return _interpolate_points_to_raster(points[:, 0], points[:, 1], points[:, 2], grid_resolution)
+
+
+def _interpolate_points_to_raster(
+    x_raw: np.ndarray,
+    y_raw: np.ndarray,
+    z_raw: np.ndarray,
+    grid_resolution: float = 1.0,
+) -> TerrainRaster:
+    """Interpolates unstructured (x, y, z) survey points onto a regular TerrainRaster."""
     xmin, xmax = float(np.min(x_raw)), float(np.max(x_raw))
     ymin, ymax = float(np.min(y_raw)), float(np.max(y_raw))
 
-    nx = max(int(math.ceil((xmax - xmin) / grid_resolution)) + 1, 3)
-    ny = max(int(math.ceil((ymax - ymin) / grid_resolution)) + 1, 3)
+    nx = max(int(math.ceil((xmax - xmin) / max(0.05, grid_resolution))) + 1, 3)
+    ny = max(int(math.ceil((ymax - ymin) / max(0.05, grid_resolution))) + 1, 3)
 
     x_grid = np.linspace(xmin, xmax, nx)
     y_grid = np.linspace(ymin, ymax, ny)
@@ -363,6 +395,48 @@ def read_xyz_point_cloud(
         x_coords=x_grid,
         y_coords=y_grid,
     )
+
+
+def read_obj_terrain(
+    filepath: str,
+    grid_resolution: float = 1.0,
+) -> TerrainRaster:
+    """
+    Parses Wavefront .OBJ terrain surface vertices (`v x y z`) into a TerrainRaster.
+    Assumes X, Y plan coordinates and Z elevation.
+    """
+    verts: List[Tuple[float, float, float]] = []
+    with open(filepath, "r", encoding="utf-8") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line.startswith("v "):
+                continue
+            parts = line.split()
+            if len(parts) >= 4:
+                verts.append((float(parts[1]), float(parts[2]), float(parts[3])))
+
+    if len(verts) < 3:
+        raise ValueError(f"OBJ file contains fewer than 3 vertices: {filepath}")
+
+    pts = np.asarray(verts, dtype=np.float64)
+    return _interpolate_points_to_raster(pts[:, 0], pts[:, 1], pts[:, 2], grid_resolution)
+
+
+def load_terrain_file(
+    filepath: str,
+    grid_resolution: float = 1.0,
+) -> TerrainRaster:
+    """Loads .asc/.txt ESRI grid, .csv/.xyz point cloud, .obj surface, or .tif GeoTIFF."""
+    lower = filepath.lower()
+    if lower.endswith((".asc", ".txt")):
+        return read_ascii_grid(filepath)
+    if lower.endswith((".csv", ".xyz")):
+        return read_xyz_point_cloud(filepath, grid_resolution=grid_resolution)
+    if lower.endswith(".obj"):
+        return read_obj_terrain(filepath, grid_resolution=grid_resolution)
+    if lower.endswith((".tif", ".tiff")):
+        return read_geotiff_dem(filepath)
+    raise ValueError(f"Unsupported terrain file format: {filepath}")
 
 
 # ==============================================================================
@@ -514,4 +588,73 @@ def drape_wall_on_terrain(
         elevation_drop_across_wall=elev_drop,
         pier_ground_elevations=pier_ground_elevs,
         aligned_pier_bases=pier_aligned_bases,
+    )
+
+
+@dataclass
+class WallCutProfile:
+    """Auto-profiled stepped/variable wall top & base elevations along a terrain cut line."""
+
+    stations_m: List[float]
+    ground_elevations_m: List[float]
+    base_elevations_m: List[float]
+    top_elevations_m: List[float]
+    retained_heights_m: List[float]
+    local_slopes_deg: List[float]
+    mean_slope_deg: float
+    crest_distance_m: float
+
+
+def auto_profile_wall_along_terrain(
+    terrain: TerrainRaster,
+    start_pt: Optional[Tuple[float, float]] = None,
+    end_pt: Optional[Tuple[float, float]] = None,
+    num_segments: int = 4,
+    base_embedment_m: float = 0.6,
+    minimum_retained_height_m: float = 2.0,
+) -> WallCutProfile:
+    """
+    Auto-profiles variable/stepped wall base and crest elevations along a terrain
+    cut line, extracting local slope beta and crest proximity for EC8 / IS 1893 S_T.
+    """
+    if num_segments < 2:
+        raise ValueError(f"num_segments must be >= 2, got {num_segments}")
+
+    xmin, ymin, xmax, ymax = terrain.bounds
+    yc = 0.5 * (ymin + ymax)
+    if start_pt is None:
+        start_pt = (xmin + 0.15 * (xmax - xmin), yc)
+    if end_pt is None:
+        end_pt = (xmin + 0.85 * (xmax - xmin), yc)
+
+    dist_arr, elev_arr, slope_arr = terrain.extract_cross_section(
+        start_pt, end_pt, num_samples=num_segments + 1
+    )
+
+    z_min_cut = float(np.min(elev_arr))
+    base_elevs = [round(float(z - base_embedment_m), 3) for z in elev_arr]
+    top_elevs = [round(float(z + minimum_retained_height_m), 3) for z in elev_arr]
+    retained_h = [round(float(top - base), 3) for top, base in zip(top_elevs, base_elevs)]
+    mean_beta = float(np.mean(slope_arr))
+
+    # Nearest crest contour point (within top 5% of elevation relief) from uphill end of cut line
+    z_max = float(np.max(terrain.elevations))
+    z_min = float(np.min(terrain.elevations))
+    crest_thresh = z_max - 0.05 * max(0.01, z_max - z_min)
+    c_ys, c_xs = np.where(terrain.elevations >= crest_thresh)
+    if len(c_xs) > 0:
+        dists_to_cut = np.hypot(terrain.x_coords[c_xs] - end_pt[0], terrain.y_coords[c_ys] - end_pt[1])
+        crest_dist = float(np.min(dists_to_cut))
+    else:
+        crest_dist = 0.0
+
+    return WallCutProfile(
+        stations_m=[round(float(d), 3) for d in dist_arr],
+        ground_elevations_m=[round(float(z), 3) for z in elev_arr],
+        base_elevations_m=base_elevs,
+        top_elevations_m=top_elevs,
+        retained_heights_m=retained_h,
+        local_slopes_deg=[round(float(s), 2) for s in slope_arr],
+        mean_slope_deg=round(mean_beta, 2),
+        crest_distance_m=round(crest_dist, 2),
     )

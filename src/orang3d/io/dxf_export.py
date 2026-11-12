@@ -35,11 +35,17 @@ DXF_LAYERS: dict[str, int] = {
     "DIMENSIONS_AND_TEXT": 3,   # Color 3: Green
 }
 
+DXF_3D_LAYERS: dict[str, int] = {
+    "WALL_3D_SHELL": 2,         # Color 2: Yellow (3D shell panels)
+    "PIERS_AND_PILES_3D": 6,    # Color 6: Magenta (3D piers & bored piles)
+    "STRUTS_3D": 5,             # Color 5: Blue (3D raking struts)
+}
+
 
 class RetainingWallDXFExporter:
     """
     Automated CAD detailing engine exporting multi-bay curved shell retaining wall
-    construction drawings in AutoCAD DXF format.
+    construction drawings in AutoCAD DXF format (2D construction sheets + optional 3D entities).
     """
 
     def __init__(self, model: Optional[MultiStrutPiledWallModel] = None):
@@ -54,6 +60,7 @@ class RetainingWallDXFExporter:
         rebar_callout: str = "2-layer T16 @ 125 mm c/c each face",
         pile_callout: str = "12-T25 Rebar Cage with T10 helical @ 100 mm pitch",
         strut_callout: str = "CHS 355.6x12.5 Structural Steel Strut (Fe 250)",
+        include_3d: bool = False,
     ) -> str:
         """
         Generates layered AutoCAD .dxf file containing:
@@ -61,6 +68,7 @@ class RetainingWallDXFExporter:
         2. Plan View (Curved Shell Arches & Piers)
         3. Structural Reinforcement Detailing
         4. Engineering Title Block & Dimensions
+        5. Optional 3D CAD geometry (`3DFACE` / `POLYLINE`) when `include_3d=True`.
         """
         file_path = Path(output_path)
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -74,6 +82,7 @@ class RetainingWallDXFExporter:
                 rebar_callout=rebar_callout,
                 pile_callout=pile_callout,
                 strut_callout=strut_callout,
+                include_3d=include_3d,
             )
         else:
             return self._export_ascii_dxf(
@@ -84,6 +93,7 @@ class RetainingWallDXFExporter:
                 rebar_callout=rebar_callout,
                 pile_callout=pile_callout,
                 strut_callout=strut_callout,
+                include_3d=include_3d,
             )
 
     def _export_ezdxf(
@@ -95,13 +105,17 @@ class RetainingWallDXFExporter:
         rebar_callout: str,
         pile_callout: str,
         strut_callout: str,
+        include_3d: bool = False,
     ) -> str:
         """Generates DXF using ezdxf library."""
         doc = ezdxf.new("R2010", setup=True)
         msp = doc.modelspace()
 
         # Create layers
-        for layer_name, color in DXF_LAYERS.items():
+        layers_to_add = dict(DXF_LAYERS)
+        if include_3d:
+            layers_to_add.update(DXF_3D_LAYERS)
+        for layer_name, color in layers_to_add.items():
             if layer_name not in doc.layers:
                 doc.layers.add(layer_name, color=color)
 
@@ -264,8 +278,80 @@ class RetainingWallDXFExporter:
         msp.add_text("ORANG3D 3D SCIENTIFIC RETAINING WALL ENGINE", height=0.30, dxfattribs={"layer": "DIMENSIONS_AND_TEXT"}).set_placement((tb_x + 0.3, tb_y - 1.7))
         msp.add_text(f"DRAWING NO: {drawing_number}  |  SCALE: 1:50  |  STATUS: APPROVED", height=0.25, dxfattribs={"layer": "DIMENSIONS_AND_TEXT"}).set_placement((tb_x + 0.3, tb_y - 2.8))
 
+        if include_3d:
+            self._emit_3d_entities_ezdxf(msp, num_bays=num_bays)
+
         doc.saveas(file_path)
         return str(file_path)
+
+    def _emit_3d_entities_ezdxf(self, msp: Any, num_bays: int) -> None:
+        """Emits 3DFACE shells, piers, bored piles, and 3D POLYLINE struts into DXF modelspace."""
+        H = self.model.shell.panel_height
+        L_bay = self.model.shell.bay_span
+        R = self.model.shell.radius
+        bp = self.model.pier_pile.pier_width
+        dp = self.model.pier_pile.pier_depth
+        hp = self.model.pier_pile.pier_height
+        d_pile = self.model.pier_pile.pile_diameter
+        l_pile = self.model.pier_pile.pile_length
+        alpha_rad = math.radians(self.model.struts.inclination_angle)
+        l_strut = self.model.struts.unbraced_length
+
+        def _add_box_faces(x0: float, x1: float, y0: float, y1: float, z0: float, z1: float, layer: str) -> None:
+            faces = [
+                [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0)],
+                [(x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)],
+                [(x0, y0, z0), (x1, y0, z0), (x1, y0, z1), (x0, y0, z1)],
+                [(x0, y1, z0), (x1, y1, z0), (x1, y1, z1), (x0, y1, z1)],
+                [(x0, y0, z0), (x0, y1, z0), (x0, y1, z1), (x0, y0, z1)],
+                [(x1, y0, z0), (x1, y1, z0), (x1, y1, z1), (x1, y0, z1)],
+            ]
+            for f in faces:
+                msp.add_3dface(f, dxfattribs={"layer": layer})
+
+        # 3D Piers, Octagonal Bored Piles, and 3D Polyline Raking Struts
+        for i in range(num_bays + 1):
+            xp = i * (L_bay + bp)
+            _add_box_faces(xp, xp + bp, 0.0, dp, 0.0, hp, "PIERS_AND_PILES_3D")
+
+            xc = xp + 0.5 * bp
+            yc = 0.5 * dp
+            rad = 0.5 * d_pile
+            n_sides = 8
+            for k in range(n_sides):
+                a0 = 2.0 * math.pi * k / n_sides
+                a1 = 2.0 * math.pi * (k + 1) / n_sides
+                p0 = (xc + rad * math.cos(a0), yc + rad * math.sin(a0))
+                p1 = (xc + rad * math.cos(a1), yc + rad * math.sin(a1))
+                msp.add_3dface(
+                    [(p0[0], p0[1], 0.0), (p1[0], p1[1], 0.0), (p1[0], p1[1], -l_pile), (p0[0], p0[1], -l_pile)],
+                    dxfattribs={"layer": "PIERS_AND_PILES_3D"},
+                )
+
+            for lvl in self.model.struts.strut_levels:
+                z_top = hp - lvl
+                y_anc = yc - l_strut * math.cos(alpha_rad)
+                z_anc = z_top - l_strut * math.sin(alpha_rad)
+                msp.add_polyline3d([(xc, yc, z_top), (xc, y_anc, z_anc)], dxfattribs={"layer": "STRUTS_3D"})
+
+        # 3D Cylindrical Shell Arch Facets
+        theta_half = math.asin(min(1.0, (L_bay / 2.0) / R))
+        sagitta = R * (1.0 - math.cos(theta_half))
+        n_seg = 8
+        for i in range(num_bays):
+            x0_bay = i * (L_bay + bp) + bp
+            x1_bay = (i + 1) * (L_bay + bp)
+            ts = np.linspace(0.0, 1.0, n_seg + 1)
+            for j in range(n_seg):
+                ta, tb = float(ts[j]), float(ts[j + 1])
+                xa = x0_bay + ta * (x1_bay - x0_bay)
+                xb = x0_bay + tb * (x1_bay - x0_bay)
+                ya = dp + sagitta * 4.0 * ta * (1.0 - ta)
+                yb = dp + sagitta * 4.0 * tb * (1.0 - tb)
+                msp.add_3dface(
+                    [(xa, ya, 0.0), (xb, yb, 0.0), (xb, yb, H), (xa, ya, H)],
+                    dxfattribs={"layer": "WALL_3D_SHELL"},
+                )
 
     def _export_ascii_dxf(
         self,
@@ -276,8 +362,12 @@ class RetainingWallDXFExporter:
         rebar_callout: str,
         pile_callout: str,
         strut_callout: str,
+        include_3d: bool = False,
     ) -> str:
         """Pure Python fallback generating valid ASCII DXF format."""
+        layers_to_add = dict(DXF_LAYERS)
+        if include_3d:
+            layers_to_add.update(DXF_3D_LAYERS)
         lines = [
             "0", "SECTION",
             "2", "HEADER",
@@ -287,9 +377,9 @@ class RetainingWallDXFExporter:
             "2", "TABLES",
             "0", "TABLE",
             "2", "LAYER",
-            "70", "4",
+            "70", str(len(layers_to_add)),
         ]
-        for name, color in DXF_LAYERS.items():
+        for name, color in layers_to_add.items():
             lines.extend([
                 "0", "LAYER",
                 "2", name,
@@ -321,6 +411,19 @@ class RetainingWallDXFExporter:
             "1", project_title,
         ])
 
+        if include_3d:
+            bp = self.model.pier_pile.pier_width
+            for i in range(num_bays):
+                xa = i * (L_bay + bp) + bp
+                xb = (i + 1) * (L_bay + bp)
+                lines.extend([
+                    "0", "3DFACE", "8", "WALL_3D_SHELL",
+                    "10", f"{xa:.4f}", "20", "0.0", "30", "0.0",
+                    "11", f"{xb:.4f}", "21", "0.0", "31", "0.0",
+                    "12", f"{xb:.4f}", "22", "0.0", "32", f"{H:.4f}",
+                    "13", f"{xa:.4f}", "23", "0.0", "33", f"{H:.4f}",
+                ])
+
         lines.extend([
             "0", "ENDSEC",
             "0", "EOF",
@@ -335,6 +438,48 @@ class RetainingWallDXFExporter:
     _export_fallback_ascii = _export_ascii_dxf
 
 
+def export_grid_to_3d_dxf(
+    grid: Any,
+    file_path: str | Path,
+    layer_name: str = "WALL_3D_SHELL",
+) -> str:
+    """Exports any PyVista 3D dataset surface triangles as 3DFACE entities in DXF."""
+    out_path = Path(file_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    surf = grid.extract_surface(algorithm="dataset_surface").triangulate()
+    pts = np.asarray(surf.points, dtype=np.float64)
+    faces = np.asarray(surf.faces, dtype=np.int64).reshape(-1, 4)[:, 1:4]
+
+    if EZDXF_AVAILABLE:
+        doc = ezdxf.new("R2010", setup=True)
+        doc.layers.add(layer_name, color=2)
+        msp = doc.modelspace()
+        for tri in faces:
+            p0, p1, p2 = pts[tri[0]], pts[tri[1]], pts[tri[2]]
+            msp.add_3dface(
+                [(float(p0[0]), float(p0[1]), float(p0[2])),
+                 (float(p1[0]), float(p1[1]), float(p1[2])),
+                 (float(p2[0]), float(p2[1]), float(p2[2]))],
+                dxfattribs={"layer": layer_name},
+            )
+        doc.saveas(out_path)
+        return str(out_path)
+
+    lines = ["0", "SECTION", "2", "ENTITIES"]
+    for tri in faces:
+        p0, p1, p2 = pts[tri[0]], pts[tri[1]], pts[tri[2]]
+        lines.extend([
+            "0", "3DFACE", "8", layer_name,
+            "10", f"{p0[0]:.5f}", "20", f"{p0[1]:.5f}", "30", f"{p0[2]:.5f}",
+            "11", f"{p1[0]:.5f}", "21", f"{p1[1]:.5f}", "31", f"{p1[2]:.5f}",
+            "12", f"{p2[0]:.5f}", "22", f"{p2[1]:.5f}", "32", f"{p2[2]:.5f}",
+            "13", f"{p2[0]:.5f}", "23", f"{p2[1]:.5f}", "33", f"{p2[2]:.5f}",
+        ])
+    lines.extend(["0", "ENDSEC", "0", "EOF"])
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return str(out_path)
+
+
 def export_retaining_wall_dxf(
     model: MultiStrutPiledWallModel,
     file_path: str,
@@ -344,6 +489,7 @@ def export_retaining_wall_dxf(
     rebar_callout: str = "2-layer T16 @ 125 mm c/c each face",
     pile_callout: str = "12-T25 Rebar Cage with T10 helical @ 100 mm pitch",
     strut_callout: str = "CHS 355.6x12.5 Structural Steel Strut (Fe 250)",
+    include_3d: bool = False,
 ) -> str:
     """Convenience function for automated DXF construction drawing generation."""
     exporter = RetainingWallDXFExporter(model=model)
@@ -355,4 +501,5 @@ def export_retaining_wall_dxf(
         rebar_callout=rebar_callout,
         pile_callout=pile_callout,
         strut_callout=strut_callout,
+        include_3d=include_3d,
     )

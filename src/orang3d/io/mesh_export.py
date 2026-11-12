@@ -9,9 +9,45 @@ import os
 import csv
 from typing import Optional
 import numpy as np
+import pyvista as pv
 
 from ..models.wall_params import RetainingWallGeometry, AnalysisResults
 from ..mesher.hex_mesher import build_3d_wall_mesh
+
+
+def _apply_warp(grid: pv.DataSet, warp_scale: float) -> pv.DataSet:
+    """Applies displacement vector warping to a PyVista dataset when available."""
+    if warp_scale > 0.0 and "Deformation_m" in grid.point_data:
+        return grid.warp_by_vector("Deformation_m", factor=warp_scale)
+    return grid
+
+
+def export_grid_mesh(
+    grid: pv.DataSet,
+    filepath: str,
+    fmt: Optional[str] = None,
+    warp_scale: float = 0.0,
+) -> str:
+    """
+    Exports any PyVista 3D mesh/dataset to .vtk, .stl, or .obj format.
+    """
+    ext = (fmt or os.path.splitext(filepath)[1].lstrip(".") or "vtk").lower()
+    if ext not in {"vtk", "stl", "obj"}:
+        raise ValueError(f"Unsupported mesh export format '{ext}'. Expected 'vtk', 'stl', or 'obj'.")
+
+    os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+    work_grid = _apply_warp(grid, warp_scale)
+
+    if ext == "vtk":
+        work_grid.save(filepath)
+    elif ext == "stl":
+        surface = work_grid.extract_surface(algorithm="dataset_surface").triangulate()
+        surface.save(filepath)
+    else:  # obj
+        surface = work_grid.extract_surface(algorithm="dataset_surface")
+        surface.save(filepath)
+
+    return filepath
 
 
 def export_mesh_to_vtk(
@@ -24,16 +60,8 @@ def export_mesh_to_vtk(
     Exports the retaining wall 3D hexahedral solid mesh with internal stress tensors
     and deformation fields to standard VTK UnstructuredGrid format readable by ParaView & meshio.
     """
-    os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
     grid = build_3d_wall_mesh(geom, results)
-
-    if warp_scale > 0.0 and "Deformation_m" in grid.point_data:
-        export_grid = grid.warp_by_vector("Deformation_m", factor=warp_scale)
-    else:
-        export_grid = grid
-
-    export_grid.save(filepath)
-    return filepath
+    return export_grid_mesh(grid, filepath, fmt="vtk", warp_scale=warp_scale)
 
 
 def export_mesh_to_stl(
@@ -46,17 +74,8 @@ def export_mesh_to_stl(
     Exports the exterior boundary surface of the retaining wall to standard STL
     triangular facet format for 3D CAD modeling, CNC, and 3D printing.
     """
-    os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
     grid = build_3d_wall_mesh(geom, results)
-
-    if warp_scale > 0.0 and "Deformation_m" in grid.point_data:
-        work_grid = grid.warp_by_vector("Deformation_m", factor=warp_scale)
-    else:
-        work_grid = grid
-
-    surface = work_grid.extract_surface(algorithm="dataset_surface").triangulate()
-    surface.save(filepath)
-    return filepath
+    return export_grid_mesh(grid, filepath, fmt="stl", warp_scale=warp_scale)
 
 
 def export_mesh_to_obj(
@@ -69,17 +88,8 @@ def export_mesh_to_obj(
     Exports the retaining wall geometry to standard Wavefront .OBJ format
     for scientific rendering, Blender, and web visualization.
     """
-    os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
     grid = build_3d_wall_mesh(geom, results)
-
-    if warp_scale > 0.0 and "Deformation_m" in grid.point_data:
-        work_grid = grid.warp_by_vector("Deformation_m", factor=warp_scale)
-    else:
-        work_grid = grid
-
-    surface = work_grid.extract_surface(algorithm="dataset_surface")
-    surface.save(filepath)
-    return filepath
+    return export_grid_mesh(grid, filepath, fmt="obj", warp_scale=warp_scale)
 
 
 def export_signals_to_csv(

@@ -363,6 +363,8 @@ class BNWFSimulationWorker(QThread):
         time_arr: np.ndarray,
         accel_arr: np.ndarray,
         slope_angle: float = 0.0,
+        mode: str = "dynamic",
+        max_pushover_disp: float = 0.05,
         parent=None,
     ):
         super().__init__(parent)
@@ -371,6 +373,8 @@ class BNWFSimulationWorker(QThread):
         self.time_arr = time_arr
         self.accel_arr = accel_arr
         self.slope_angle = slope_angle
+        self.mode = mode
+        self.max_pushover_disp = max_pushover_disp
         self._is_cancelled = False
         self._start_time = 0.0
 
@@ -413,6 +417,25 @@ class BNWFSimulationWorker(QThread):
                 self.simulationFinished.emit({"status": "CANCELLED"})
                 return
 
+            if self.mode == "pushover":
+                self.stageCompleted.emit(3, "Lateral Pushover Analysis")
+                pushover = solver.run_pushover_analysis(max_displacement=self.max_pushover_disp)
+                elapsed = time.perf_counter() - self._start_time
+                max_disp_cm = float(np.max(np.abs(pushover["displacements"])) * 100.0) if len(pushover["displacements"]) else 0.0
+                max_shear = float(np.max(np.abs(pushover["base_shears"]))) if len(pushover["base_shears"]) else 0.0
+                summary = {
+                    "status": "CANCELLED" if self._is_cancelled else "SUCCESS",
+                    "mode": "pushover",
+                    "total_steps": len(pushover["displacements"]),
+                    "max_crest_disp_cm": max_disp_cm,
+                    "max_moment_knm": 0.0,
+                    "max_base_shear_kn": max_shear,
+                    "pushover": pushover,
+                    "elapsed_seconds": elapsed,
+                }
+                self.simulationFinished.emit(summary)
+                return
+
             # Stage 3: Dynamic transient analysis
             self.stageCompleted.emit(3, "Earthquake Transient Ground Motion Analysis")
 
@@ -432,9 +455,11 @@ class BNWFSimulationWorker(QThread):
             elapsed = time.perf_counter() - self._start_time
             summary = {
                 "status": "CANCELLED" if self._is_cancelled else result.status,
+                "mode": "dynamic",
                 "total_steps": result.total_steps,
                 "max_crest_disp_cm": result.max_crest_disp_cm,
                 "max_moment_knm": result.max_moment_knm,
+                "result": result,
                 "elapsed_seconds": elapsed,
             }
             self.simulationFinished.emit(summary)

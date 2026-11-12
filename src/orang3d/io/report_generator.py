@@ -15,9 +15,8 @@ from datetime import datetime
 from typing import Optional, Union
 
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QTextDocument
@@ -35,6 +34,7 @@ from ..config import (
     APP_NAME,
     APP_VERSION,
 )
+from ..units import UnitSystem, from_si_value, unit_label
 
 
 def _render_cross_section_png(
@@ -42,9 +42,12 @@ def _render_cross_section_png(
     soil: SoilProperties,
     seismic: SeismicParams,
     results: AnalysisResults,
+    unit_system: UnitSystem = UnitSystem.SI,
 ) -> str:
     """Renders a dimensioned 2D engineering cross-section to a base64-encoded PNG."""
-    fig, ax = plt.subplots(figsize=(6.5, 4.2), dpi=140)
+    fig = Figure(figsize=(6.5, 4.2), dpi=120)
+    FigureCanvasAgg(fig)
+    ax = fig.add_subplot(111)
     fig.patch.set_facecolor("#ffffff")
     ax.set_facecolor("#f9fafb")
 
@@ -77,13 +80,17 @@ def _render_cross_section_png(
     if seismic.water_table_depth < total_h:
         y_w = total_h - seismic.water_table_depth
         ax.plot([toe + t_base, toe + t_base + back_ext], [y_w, y_w], color="#0284c7", linewidth=1.8, linestyle="--")
-        ax.text(toe + t_base + 0.2, y_w + 0.12, f"GWT ($d_w={seismic.water_table_depth:.1f}\\text{{ m}}$)", color="#0369a1", fontsize=8, weight="bold")
+        dw_disp = from_si_value(seismic.water_table_depth, "length", unit_system)
+        u_len = unit_label("length", unit_system)
+        ax.text(toe + t_base + 0.2, y_w + 0.12, f"GWT (d_w = {dw_disp:.1f} {u_len})", color="#0369a1", fontsize=8, weight="bold")
 
     # 5. Thrust Resultant Arrow P_ae
     p_y = max(d_f + 0.5, results.thrust_height)
     p_x = toe + t_base
+    pae_disp = from_si_value(results.total_thrust, "force_per_m", unit_system)
+    u_force_m = unit_label("force_per_m", unit_system)
     ax.annotate(
-        f"$P_{{ae}} = {results.total_thrust:.1f}\\text{{ kN/m}}$",
+        f"P_ae = {pae_disp:.2f} {u_force_m}",
         xy=(p_x, p_y),
         xytext=(p_x + 1.8, p_y + 0.6),
         arrowprops=dict(facecolor="#dc2626", edgecolor="#b91c1c", width=2.0, headwidth=8.0),
@@ -91,11 +98,14 @@ def _render_cross_section_png(
     )
 
     # 6. Dimension Annotations
+    u_len = unit_label("length", unit_system)
+    htot_disp = from_si_value(total_h, "length", unit_system)
+    bw_disp = from_si_value(b_w, "length", unit_system)
     ax.annotate("", xy=(-0.3, 0), xytext=(-0.3, total_h), arrowprops=dict(arrowstyle="<->", color="#4b5563"))
-    ax.text(-0.5, total_h / 2.0, f"$H_{{total}} = {total_h:.2f}\\text{{ m}}$", rotation=90, va="center", ha="right", fontsize=8, color="#374151")
+    ax.text(-0.5, total_h / 2.0, f"H_total = {htot_disp:.2f} {u_len}", rotation=90, va="center", ha="right", fontsize=8, color="#374151")
 
     ax.annotate("", xy=(0, -0.3), xytext=(b_w, -0.3), arrowprops=dict(arrowstyle="<->", color="#4b5563"))
-    ax.text(b_w / 2.0, -0.55, f"$B = {b_w:.2f}\\text{{ m}}$", ha="center", fontsize=8, color="#374151")
+    ax.text(b_w / 2.0, -0.55, f"B = {bw_disp:.2f} {u_len}", ha="center", fontsize=8, color="#374151")
 
     ax.set_xlim(-1.2, b_w + back_ext + 0.5)
     ax.set_ylim(-0.8, total_h + 1.2)
@@ -104,29 +114,37 @@ def _render_cross_section_png(
     ax.set_title("Retaining Wall Dimensioned Cross-Section", fontsize=10, weight="bold", pad=8, color="#111827")
 
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=140, bbox_inches="tight")
-    plt.close(fig)
+    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+    fig.clear()
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
-def _render_waveforms_png(time_arr: np.ndarray, slip_arr: np.ndarray) -> str:
+def _render_waveforms_png(
+    time_arr: np.ndarray,
+    slip_arr: np.ndarray,
+    unit_system: UnitSystem = UnitSystem.SI,
+) -> str:
     """Renders dynamic Newmark sliding displacement curve to a base64-encoded PNG."""
-    fig, ax = plt.subplots(figsize=(6.5, 2.5), dpi=140)
+    fig = Figure(figsize=(6.5, 2.5), dpi=120)
+    FigureCanvasAgg(fig)
+    ax = fig.add_subplot(111)
     fig.patch.set_facecolor("#ffffff")
     ax.set_facecolor("#f9fafb")
 
-    ax.plot(time_arr, slip_arr, color="#ea580c", linewidth=2.0, label="Permanent Slip $u(t)$")
-    ax.fill_between(time_arr, 0, slip_arr, color="#ffedd5", alpha=0.5)
+    slip_disp = slip_arr * from_si_value(1.0, "disp_cm", unit_system)
+    u_disp = unit_label("disp_cm", unit_system)
+    ax.plot(time_arr, slip_disp, color="#ea580c", linewidth=2.0, label="Permanent Slip u(t)")
+    ax.fill_between(time_arr, 0, slip_disp, color="#ffedd5", alpha=0.5)
 
     ax.set_xlabel("Time (s)", fontsize=8, color="#374151")
-    ax.set_ylabel("Permanent Slip (cm)", fontsize=8, color="#374151")
+    ax.set_ylabel(f"Permanent Slip ({u_disp})", fontsize=8, color="#374151")
     ax.grid(True, linestyle=":", alpha=0.6)
     ax.set_title("Newmark Dynamic Sliding Displacement History", fontsize=9, weight="bold", color="#111827")
     ax.tick_params(labelsize=8)
 
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=140, bbox_inches="tight")
-    plt.close(fig)
+    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
+    fig.clear()
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
@@ -140,21 +158,24 @@ def generate_engineering_pdf_report(
     time_arr: Optional[np.ndarray] = None,
     slip_arr: Optional[np.ndarray] = None,
     project_title: str = "Retaining Wall Dynamic Safety & Disaster Assessment",
+    unit_system: Union[UnitSystem, str] = UnitSystem.SI,
 ) -> str:
     """
     Generates a PDF design report containing cross-section drawings,
-    material properties, seismic parameters, code compliance checks, and waveform histories.
+    material properties, seismic parameters, code compliance checks, and waveform histories
+    formatted in either SI or Imperial units.
     """
     os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
 
     std = RegionalStandard(regional_standard) if isinstance(regional_standard, str) else regional_standard
+    u_sys = UnitSystem(unit_system)
     thresholds = get_safety_thresholds(std)
 
-    cross_section_b64 = _render_cross_section_png(geom, soil, seismic, results)
+    cross_section_b64 = _render_cross_section_png(geom, soil, seismic, results, unit_system=u_sys)
 
     waveforms_b64 = ""
     if time_arr is not None and slip_arr is not None and len(time_arr) > 0:
-        waveforms_b64 = _render_waveforms_png(time_arr, slip_arr)
+        waveforms_b64 = _render_waveforms_png(time_arr, slip_arr, unit_system=u_sys)
 
     # Compliance evaluations
     req_s = thresholds["sliding_seismic"]
@@ -174,6 +195,9 @@ def generate_engineering_pdf_report(
         fg = "#15803d" if passed else "#b91c1c"
         txt = "PASS" if passed else "FAIL"
         return f"<span style='background:{bg}; color:{fg}; padding:2px 8px; border-radius:4px; font-weight:bold; font-size:10px;'>{txt}</span>"
+
+    def _f(val: float, kind: str, dec: int = 2) -> str:
+        return f"{from_si_value(val, kind, u_sys):.{dec}f} {unit_label(kind, u_sys)}"
 
     html = f"""
     <!DOCTYPE html>
@@ -257,7 +281,7 @@ def generate_engineering_pdf_report(
     <body>
       <h1>{project_title}</h1>
       <div class="header-meta">
-        Generated by {APP_NAME} v{APP_VERSION} | Design Code: <b>{std.value.upper()}</b> | Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        Generated by {APP_NAME} v{APP_VERSION} | Design Code: <b>{std.value.upper()}</b> | Units: <b>{u_sys.value.upper()}</b> | Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
       </div>
 
       <div class="verdict-box">
@@ -268,20 +292,20 @@ def generate_engineering_pdf_report(
       <h2>1. Geometrical Dimensions & Cross-Section</h2>
       <table>
         <tr>
-          <th>Stem Height $H$</th><td>{geom.stem_height:.2f} m</td>
-          <th>Footing Thickness $D_f$</th><td>{geom.footing_thickness:.2f} m</td>
+          <th>Stem Height <i>H</i></th><td>{_f(geom.stem_height, 'length')}</td>
+          <th>Footing Thickness <i>D<sub>f</sub></i></th><td>{_f(geom.footing_thickness, 'length')}</td>
         </tr>
         <tr>
-          <th>Base Stem Thickness $t_{{base}}$</th><td>{geom.stem_thickness_base:.2f} m</td>
-          <th>Crest Thickness $t_{{top}}$</th><td>{geom.stem_thickness_top:.2f} m</td>
+          <th>Base Stem Thickness <i>t<sub>base</sub></i></th><td>{_f(geom.stem_thickness_base, 'length')}</td>
+          <th>Crest Thickness <i>t<sub>top</sub></i></th><td>{_f(geom.stem_thickness_top, 'length')}</td>
         </tr>
         <tr>
-          <th>Front Toe Length $L_{{toe}}$</th><td>{geom.toe_length:.2f} m</td>
-          <th>Rear Heel Length $L_{{heel}}$</th><td>{geom.heel_length:.2f} m</td>
+          <th>Front Toe Length <i>L<sub>toe</sub></i></th><td>{_f(geom.toe_length, 'length')}</td>
+          <th>Rear Heel Length <i>L<sub>heel</sub></i></th><td>{_f(geom.heel_length, 'length')}</td>
         </tr>
         <tr>
-          <th>Total Base Width $B$</th><td>{geom.base_width:.2f} m</td>
-          <th>Total Height $H_{{total}}$</th><td>{geom.total_height:.2f} m</td>
+          <th>Total Base Width <i>B</i></th><td>{_f(geom.base_width, 'length')}</td>
+          <th>Total Height <i>H<sub>total</sub></i></th><td>{_f(geom.total_height, 'length')}</td>
         </tr>
       </table>
 
@@ -292,20 +316,20 @@ def generate_engineering_pdf_report(
       <h2>2. Geotechnical Strata & Seismic Parameters</h2>
       <table>
         <tr>
-          <th>Backfill Soil Unit Weight $\\gamma$</th><td>{soil.unit_weight:.1f} kN/m³</td>
-          <th>Backfill Friction Angle $\\phi$</th><td>{soil.friction_angle:.1f}°</td>
+          <th>Backfill Soil Unit Weight &gamma;</th><td>{_f(soil.unit_weight, 'unit_weight', 1)}</td>
+          <th>Backfill Friction Angle &phi;</th><td>{soil.friction_angle:.1f}°</td>
         </tr>
         <tr>
-          <th>Foundation Cohesion $c_f$</th><td>{soil.foundation_cohesion:.1f} kPa</td>
-          <th>Allowable Bearing $q_{{all}}$</th><td>{soil.allowable_bearing_capacity:.1f} kPa</td>
+          <th>Foundation Cohesion <i>c<sub>f</sub></i></th><td>{_f(soil.foundation_cohesion, 'pressure', 2)}</td>
+          <th>Allowable Bearing <i>q<sub>all</sub></i></th><td>{_f(soil.allowable_bearing_capacity, 'pressure', 2)}</td>
         </tr>
         <tr>
-          <th>Peak Ground Acceleration $k_h$</th><td>{seismic.horizontal_pga:.2f}g</td>
-          <th>Water Table Depth $d_w$</th><td>{seismic.water_table_depth:.2f} m</td>
+          <th>Peak Ground Acceleration <i>k<sub>h</sub></i></th><td>{seismic.horizontal_pga:.2f}g</td>
+          <th>Water Table Depth <i>d<sub>w</sub></i></th><td>{_f(seismic.water_table_depth, 'length')}</td>
         </tr>
         <tr>
-          <th>Pore Pressure Ratio $r_u$</th><td>{seismic.pore_pressure_ratio_ru:.2f}</td>
-          <th>Backfill Slope Angle $\\beta$</th><td>{seismic.backfill_slope:.1f}°</td>
+          <th>Pore Pressure Ratio <i>r<sub>u</sub></i></th><td>{seismic.pore_pressure_ratio_ru:.2f}</td>
+          <th>Backfill Slope Angle &beta;</th><td>{seismic.backfill_slope:.1f}°</td>
         </tr>
       </table>
 
@@ -314,8 +338,8 @@ def generate_engineering_pdf_report(
         <thead>
           <tr>
             <th>Failure Mechanism</th>
-            <th>Calculated $FS$</th>
-            <th>Required $FS_{{req}}$</th>
+            <th>Calculated <i>FS</i></th>
+            <th>Required <i>FS<sub>req</sub></i></th>
             <th>Status</th>
           </tr>
         </thead>
@@ -344,19 +368,19 @@ def generate_engineering_pdf_report(
       <h2>4. Structural & Bearing Capacity Demands</h2>
       <table>
         <tr>
-          <th>Total Dynamic Thrust $P_{{ae}}$</th><td>{results.total_thrust:.1f} kN/m</td>
-          <th>Thrust Height Above Base</th><td>{results.thrust_height:.2f} m</td>
+          <th>Total Dynamic Thrust <i>P<sub>ae</sub></i></th><td>{_f(results.total_thrust, 'force_per_m', 2)}</td>
+          <th>Thrust Height Above Base</th><td>{_f(results.thrust_height, 'length')}</td>
         </tr>
         <tr>
-          <th>Maximum Toe Pressure $q_{{toe}}$</th><td>{results.max_bearing_pressure:.1f} kPa</td>
-          <th>Minimum Heel Pressure $q_{{heel}}$</th><td>{results.min_bearing_pressure:.1f} kPa</td>
+          <th>Maximum Toe Pressure <i>q<sub>toe</sub></i></th><td>{_f(results.max_bearing_pressure, 'pressure', 2)}</td>
+          <th>Minimum Heel Pressure <i>q<sub>heel</sub></i></th><td>{_f(results.min_bearing_pressure, 'pressure', 2)}</td>
         </tr>
         <tr>
-          <th>Load Eccentricity $e$</th><td>{results.eccentricity:.2f} m (Kern limit: {geom.base_width / 6.0:.2f} m)</td>
-          <th>Stem Base Bending Moment $M_u$</th><td>{results.max_bending_moment:.1f} kNm/m</td>
+          <th>Load Eccentricity <i>e</i></th><td>{_f(results.eccentricity, 'length')} (Kern limit: {_f(geom.base_width / 6.0, 'length')})</td>
+          <th>Stem Base Bending Moment <i>M<sub>u</sub></i></th><td>{_f(results.max_bending_moment, 'moment_per_m', 2)}</td>
         </tr>
         <tr>
-          <th>Stem Concrete Tensile Stress</th><td><b>{results.concrete_tensile_stress:.2f} MPa</b></td>
+          <th>Stem Concrete Tensile Stress</th><td><b>{_f(results.concrete_tensile_stress, 'stress_mpa', 2)}</b></td>
           <th>Concrete Cracking State</th><td>{'CRACKED' if results.cracking_predicted else 'ELASTIC / UNCRACKED'}</td>
         </tr>
       </table>

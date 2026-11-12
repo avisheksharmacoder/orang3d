@@ -4,8 +4,8 @@ Supports SI Metric and Imperial (US Customary) engineering units.
 """
 
 from enum import Enum
-from typing import Union
-from .models.wall_params import RetainingWallGeometry, SoilProperties
+from typing import Tuple, Union
+from .models.wall_params import RetainingWallGeometry, SeismicParams, SoilProperties
 
 # International exact conversion constants
 # 1 inch = 0.0254 m (exact), 1 ft = 0.3048 m (exact)
@@ -32,6 +32,20 @@ KPA_TO_KSF = 1.0 / KSF_TO_KPA
 # Bending Moment: 1 kip-ft in kNm
 KIP_FT_TO_KN_M = KIPS_TO_KN * FT_TO_M
 KN_M_TO_KIP_FT = 1.0 / KIP_FT_TO_KN_M
+
+# Small lengths & stress
+IN_TO_MM = 25.4
+MM_TO_IN = 1.0 / IN_TO_MM
+IN_TO_CM = 2.54
+CM_TO_IN = 1.0 / IN_TO_CM
+MPA_TO_KSI = 1.0 / 6.894757293168361
+KSI_TO_MPA = 1.0 / MPA_TO_KSI
+
+# Per-unit-wall-length force & moment
+KN_PER_M_TO_KIP_PER_FT = KN_TO_KIPS * FT_TO_M
+KIP_PER_FT_TO_KN_PER_M = 1.0 / KN_PER_M_TO_KIP_PER_FT
+KN_M_PER_M_TO_KIP_FT_PER_FT = KN_TO_KIPS
+KIP_FT_PER_FT_TO_KN_M_PER_M = KIPS_TO_KN
 
 
 class UnitSystem(str, Enum):
@@ -189,3 +203,123 @@ def convert_soil_units(
         foundation_unit_weight=w_conv(soil.foundation_unit_weight),
         allowable_bearing_capacity=p_conv(soil.allowable_bearing_capacity),
     )
+
+
+def mm_to_in(val: float) -> float:
+    """Converts millimeters to inches."""
+    return val * MM_TO_IN
+
+
+def in_to_mm(val: float) -> float:
+    """Converts inches to millimeters."""
+    return val * IN_TO_MM
+
+
+def cm_to_in(val: float) -> float:
+    """Converts centimeters to inches."""
+    return val * CM_TO_IN
+
+
+def in_to_cm(val: float) -> float:
+    """Converts inches to centimeters."""
+    return val * IN_TO_CM
+
+
+def mpa_to_ksi(val: float) -> float:
+    """Converts megapascals (MPa) to kips per square inch (ksi)."""
+    return val * MPA_TO_KSI
+
+
+def ksi_to_mpa(val: float) -> float:
+    """Converts kips per square inch (ksi) to megapascals (MPa)."""
+    return val * KSI_TO_MPA
+
+
+def kn_per_m_to_kip_per_ft(val: float) -> float:
+    """Converts linear thrust kN/m to kip/ft."""
+    return val * KN_PER_M_TO_KIP_PER_FT
+
+
+def kip_per_ft_to_kn_per_m(val: float) -> float:
+    """Converts linear thrust kip/ft to kN/m."""
+    return val * KIP_PER_FT_TO_KN_PER_M
+
+
+def kn_m_per_m_to_kip_ft_per_ft(val: float) -> float:
+    """Converts bending moment per unit width kNm/m to kip-ft/ft."""
+    return val * KN_M_PER_M_TO_KIP_FT_PER_FT
+
+
+def kip_ft_per_ft_to_kn_m_per_m(val: float) -> float:
+    """Converts bending moment per unit width kip-ft/ft to kNm/m."""
+    return val * KIP_FT_PER_FT_TO_KN_M_PER_M
+
+
+def convert_seismic_units(
+    seismic: SeismicParams,
+    from_system: Union[UnitSystem, str],
+    to_system: Union[UnitSystem, str],
+) -> SeismicParams:
+    """Converts water_table_depth between SI (m) and Imperial (ft)."""
+    from_sys = UnitSystem(from_system)
+    to_sys = UnitSystem(to_system)
+    if from_sys == to_sys:
+        w_d = seismic.water_table_depth
+    elif from_sys == UnitSystem.SI and to_sys == UnitSystem.IMPERIAL:
+        w_d = m_to_ft(seismic.water_table_depth)
+    else:
+        w_d = ft_to_m(seismic.water_table_depth)
+    return SeismicParams(
+        horizontal_pga=seismic.horizontal_pga,
+        vertical_pga=seismic.vertical_pga,
+        backfill_slope=seismic.backfill_slope,
+        water_table_depth=w_d,
+        liquefaction_factor=seismic.liquefaction_factor,
+        pore_pressure_ratio_ru=seismic.pore_pressure_ratio_ru,
+    )
+
+
+_UNIT_QUANTITY_MAP: dict[str, Tuple[str, str, float]] = {
+    # kind -> (si_unit, imperial_unit, factor si -> imperial)
+    "length": ("m", "ft", M_TO_FT),
+    "disp_cm": ("cm", "in", CM_TO_IN),
+    "disp_mm": ("mm", "in", MM_TO_IN),
+    "force": ("kN", "kip", KN_TO_KIPS),
+    "force_per_m": ("kN/m", "kip/ft", KN_PER_M_TO_KIP_PER_FT),
+    "moment": ("kNm", "kip-ft", KN_M_TO_KIP_FT),
+    "moment_per_m": ("kNm/m", "kip-ft/ft", KN_M_PER_M_TO_KIP_FT_PER_FT),
+    "pressure": ("kPa", "ksf", KPA_TO_KSF),
+    "pressure_psf": ("kPa", "psf", KPA_TO_PSF),
+    "stress_mpa": ("MPa", "ksi", MPA_TO_KSI),
+    "unit_weight": ("kN/m³", "pcf", KN_M3_TO_PCF),
+    "ratio": ("-", "-", 1.0),
+    "angle": ("deg", "deg", 1.0),
+}
+
+
+def unit_label(kind: str, unit_system: Union[UnitSystem, str]) -> str:
+    """Returns canonical display unit symbol for a physical quantity kind."""
+    sys_enum = UnitSystem(unit_system)
+    if kind not in _UNIT_QUANTITY_MAP:
+        return kind
+    si_lbl, imp_lbl, _ = _UNIT_QUANTITY_MAP[kind]
+    return si_lbl if sys_enum == UnitSystem.SI else imp_lbl
+
+
+def from_si_value(val: float, kind: str, unit_system: Union[UnitSystem, str]) -> float:
+    """Converts a canonical SI value into display units (`SI` or `IMPERIAL`)."""
+    sys_enum = UnitSystem(unit_system)
+    if sys_enum == UnitSystem.SI or kind not in _UNIT_QUANTITY_MAP:
+        return float(val)
+    _, _, factor = _UNIT_QUANTITY_MAP[kind]
+    return float(val) * factor
+
+
+def to_si_value(val: float, kind: str, unit_system: Union[UnitSystem, str]) -> float:
+    """Converts a display-unit value back into canonical SI."""
+    sys_enum = UnitSystem(unit_system)
+    if sys_enum == UnitSystem.SI or kind not in _UNIT_QUANTITY_MAP:
+        return float(val)
+    _, _, factor = _UNIT_QUANTITY_MAP[kind]
+    return float(val) / factor
+

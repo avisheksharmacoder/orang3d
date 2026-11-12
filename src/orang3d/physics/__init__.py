@@ -163,6 +163,54 @@ from .uncertainty import (
     MonteCarloReliabilityEngine,
     SeismicFragilityEngine,
 )
+from .solver_registry import (
+    SolverTier,
+    SolverCapability,
+    SolverProvenance,
+    detect_solver_capabilities,
+    get_available_solvers,
+    build_provenance,
+)
+from .opensees_3d_solver import (
+    ConstitutiveModelType,
+    ContinuumFEAResult,
+    OpenSees3DContinuumSolver,
+    OpenSees3DFEAWorker,
+    export_continuum_hdf5,
+    load_continuum_hdf5,
+)
+from .code_auditor import (
+    DesignCodeAuditor,
+    MultiCodeAuditReport,
+    STANDARD_LABELS,
+)
+from .surcharge import (
+    SurchargeLoadType,
+    AdjacentSurchargeParams,
+    SurchargeAnalysisResult,
+    compute_boussinesq_strip_pressure,
+    calculate_adjacent_surcharge_profile,
+    evaluate_wall_stability_with_surcharge,
+)
+from .arch_wall_solver import (
+    SteppedTerracedResult,
+    CornerWingwallResult,
+    CounterfortWallResult,
+    CurvedPlanWallResult,
+    MSEGabionWallResult,
+    ArchWallAnalysisSummary,
+    evaluate_stepped_terraced_wall,
+    evaluate_corner_wingwall,
+    evaluate_counterfort_wall,
+    evaluate_curved_plan_wall,
+    evaluate_mse_gabion_wall,
+    evaluate_architectural_wall,
+)
+from .sizing_advisor import (
+    SizingRecommendation,
+    SizingAdviceReport,
+    evaluate_sizing_advisor,
+)
 
 __all__ = [
     # Baseline Cantilever / Gravity Engines (v0.1.0)
@@ -297,4 +345,45 @@ __all__ = [
     "LatinHypercubeSampler",
     "MonteCarloReliabilityEngine",
     "SeismicFragilityEngine",
+    # Solver Capability & Provenance Registry (v3 Phase 1)
+    "SolverTier",
+    "SolverCapability",
+    "SolverProvenance",
+    "detect_solver_capabilities",
+    "get_available_solvers",
+    "build_provenance",
+    # 3D Continuum Dynamic SSI Solver (v3 Phase 3)
+    "ConstitutiveModelType",
+    "ContinuumFEAResult",
+    "OpenSees3DContinuumSolver",
+    "OpenSees3DFEAWorker",
+    "export_continuum_hdf5",
+    "load_continuum_hdf5",
+    # Unified Multi-Code Design Auditor (v3 Phase 6)
+    "DesignCodeAuditor",
+    "MultiCodeAuditReport",
+    "STANDARD_LABELS",
+    # Adjacent Surcharge & Architectural Wall Physics (v3 Phase 7)
+    "SurchargeLoadType",
+    "AdjacentSurchargeParams",
+    "SurchargeAnalysisResult",
+    "compute_boussinesq_strip_pressure",
+    "calculate_adjacent_surcharge_profile",
+    "evaluate_wall_stability_with_surcharge",
+    "SteppedTerracedResult",
+    "CornerWingwallResult",
+    "CounterfortWallResult",
+    "CurvedPlanWallResult",
+    "MSEGabionWallResult",
+    "ArchWallAnalysisSummary",
+    "evaluate_stepped_terraced_wall",
+    "evaluate_corner_wingwall",
+    "evaluate_counterfort_wall",
+    "evaluate_curved_plan_wall",
+    "evaluate_mse_gabion_wall",
+    "evaluate_architectural_wall",
+    # Interactive Sizing Advisor (v3 Phase 8)
+    "SizingRecommendation",
+    "SizingAdviceReport",
+    "evaluate_sizing_advisor",
 ]

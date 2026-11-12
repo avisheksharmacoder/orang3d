@@ -6,8 +6,17 @@ curved shell retaining walls on seismic hill slopes (Phase 1).
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
+from enum import Enum
 import math
 from typing import Any
+
+
+class WallSystemMode(str, Enum):
+    """Active retaining structure typology in the desktop studio."""
+
+    CANTILEVER = "cantilever"
+    MULTI_STRUT_CURVED_SHELL = "multi_strut_curved_shell"
+    ARCHITECTURAL = "architectural"
 
 
 @dataclass

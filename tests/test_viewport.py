@@ -89,13 +89,15 @@ def test_viewport_initialization(qapp):
     assert bg_color is not None
 
     # Verify toolbar controls exist and defaults
-    assert view.combo_scalar.count() == 3
+    assert view.combo_scalar.count() == 8
     assert view.combo_cmap.count() >= 3
     assert view.spin_warp.value() == 1.0
     assert view.chk_soil.isChecked() is True
     assert view.chk_water.isChecked() is True
     assert view.chk_wedge.isChecked() is False
     assert view.chk_vectors.isChecked() is False
+    assert view.chk_piles.isChecked() is True
+    assert view.chk_struts.isChecked() is True
     assert view.combo_slice.currentIndex() == 0
 
     view.close()
