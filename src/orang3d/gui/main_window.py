@@ -9,7 +9,7 @@ import numpy as np
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QTabWidget, QToolBar, QStatusBar, QLabel, QPushButton, QSlider,
-    QComboBox, QFileDialog, QMessageBox
+    QComboBox, QFileDialog, QMessageBox, QScrollArea, QFrame
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QIcon
@@ -70,7 +70,20 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"{APP_NAME} - {APP_SUBTITLE} (v{APP_VERSION})")
-        self.resize(1400, 900)
+
+        # Explicit Window Flags ensuring Maximize, Minimize, and Close buttons are active
+        self.setWindowFlags(
+            Qt.Window
+            | Qt.WindowTitleHint
+            | Qt.WindowSystemMenuHint
+            | Qt.WindowMinimizeButtonHint
+            | Qt.WindowMaximizeButtonHint
+            | Qt.WindowCloseButtonHint
+        )
+
+        # Standard 16:9 desktop viewport ratio (1440x810 default, min 1152x648)
+        self.resize(1440, 810)
+        self.setMinimumSize(1152, 648)
 
         # State models
         self.geom = RetainingWallGeometry()
@@ -219,6 +232,13 @@ class MainWindow(QMainWindow):
             self.act_theme_dark.setChecked(self.theme_mode == ThemeMode.DARK)
             self.act_theme_light.setChecked(self.theme_mode == ThemeMode.LIGHT)
 
+    def reset_to_16_9_ratio(self, base_width: int = 1440) -> None:
+        """Restores the application window to a crisp 16:9 widescreen desktop aspect ratio."""
+        if self.isMaximized():
+            self.showNormal()
+        height = int(round(base_width * (9.0 / 16.0)))
+        self.resize(base_width, height)
+
     def _init_ui(self):
         # Menu Bar
         menu_bar = self.menuBar()
@@ -306,110 +326,134 @@ class MainWindow(QMainWindow):
             act_cam.triggered.connect(partial(self._set_camera_preset_safe, key))
 
         menu_view.addSeparator()
+        self.act_maximize = menu_view.addAction("Maximize Window")
+        self.act_maximize.setShortcut("F11")
+        self.act_maximize.triggered.connect(
+            lambda: self.showNormal() if self.isMaximized() else self.showMaximized()
+        )
+
+        menu_aspect = menu_view.addMenu("Window Aspect Ratio (16:9)")
+        act_16_9_std = menu_aspect.addAction("Standard 16:9 (1440 × 810)")
+        act_16_9_std.triggered.connect(lambda: self.reset_to_16_9_ratio(1440))
+        act_16_9_compact = menu_aspect.addAction("Compact 16:9 (1280 × 720)")
+        act_16_9_compact.triggered.connect(lambda: self.reset_to_16_9_ratio(1280))
+        act_16_9_large = menu_aspect.addAction("Large 16:9 (1600 × 900)")
+        act_16_9_large.triggered.connect(lambda: self.reset_to_16_9_ratio(1600))
+        act_16_9_fhd = menu_aspect.addAction("Full HD 16:9 (1920 × 1080)")
+        act_16_9_fhd.triggered.connect(lambda: self.reset_to_16_9_ratio(1920))
+
+        menu_view.addSeparator()
         self.act_snapshot_4k = menu_view.addAction("Save 4K Viewport Render (.png)...")
         self.act_snapshot_4k.triggered.connect(self._save_4k_snapshot_dialog)
 
-        # Top Toolbar
-        toolbar = QToolBar("Controls", self)
-        toolbar.setMovable(False)
-        self.addToolBar(toolbar)
+        # Row 1: Project & System Toolbar
+        self.toolbar = QToolBar("Project & System Controls", self)
+        self.toolbar.setMovable(False)
+        self.addToolBar(self.toolbar)
 
         btn_open = QPushButton("📂 Open")
         btn_open.setToolTip("Open saved .o3d project session (Ctrl+O)")
         btn_open.clicked.connect(self._open_project)
-        toolbar.addWidget(btn_open)
+        self.toolbar.addWidget(btn_open)
 
         btn_save = QPushButton("💾 Save")
         btn_save.setToolTip("Save project session as .o3d bundle (Ctrl+S)")
         btn_save.clicked.connect(self._save_project)
-        toolbar.addWidget(btn_save)
+        self.toolbar.addWidget(btn_save)
 
         btn_report = QPushButton("📄 PDF Report")
         btn_report.setToolTip("Generate comprehensive geotechnical calculation report (Ctrl+P)")
         btn_report.clicked.connect(self._generate_report_dialog)
-        toolbar.addWidget(btn_report)
+        self.toolbar.addWidget(btn_report)
 
         btn_dxf = QPushButton("📐 AutoCAD DXF")
         btn_dxf.setToolTip("Export detailed layered AutoCAD DXF construction drawings with reinforcement detailing")
         btn_dxf.clicked.connect(self._export_dxf_dialog)
-        toolbar.addWidget(btn_dxf)
+        self.toolbar.addWidget(btn_dxf)
 
-        toolbar.addSeparator()
+        self.toolbar.addSeparator()
 
-        btn_reset_cam = QPushButton("Reset 3D Camera")
-        btn_reset_cam.clicked.connect(lambda: self.viewport_3d.plotter.reset_camera())
-        toolbar.addWidget(btn_reset_cam)
-
-        toolbar.addSeparator()
-
-        self.btn_play = QPushButton("▶ Play Seismic Wave")
-        self.btn_play.clicked.connect(self._toggle_playback)
-        toolbar.addWidget(self.btn_play)
-
-        toolbar.addWidget(QLabel("  Timeline:"))
-        self.timeline_slider = QSlider(Qt.Horizontal)
-        self.timeline_slider.setRange(0, 1000)
-        self.timeline_slider.setValue(0)
-        self.timeline_slider.valueChanged.connect(self._on_scrubber_moved)
-        self.timeline_slider.setMinimumWidth(250)
-        toolbar.addWidget(self.timeline_slider)
-
-        toolbar.addSeparator()
-
-        toolbar.addWidget(QLabel("System:"))
+        self.toolbar.addWidget(QLabel("System:"))
         self.combo_wall_mode = QComboBox()
         self.combo_wall_mode.addItem("Cantilever Wall", WallSystemMode.CANTILEVER)
         self.combo_wall_mode.addItem("Curved Shell + Piles", WallSystemMode.MULTI_STRUT_CURVED_SHELL)
         self.combo_wall_mode.addItem("Architectural Walls", WallSystemMode.ARCHITECTURAL)
         self.combo_wall_mode.currentIndexChanged.connect(self._on_wall_mode_changed)
-        toolbar.addWidget(self.combo_wall_mode)
+        self.toolbar.addWidget(self.combo_wall_mode)
 
-        toolbar.addWidget(QLabel("  Units:"))
+        self.toolbar.addWidget(QLabel("  Units:"))
         self.combo_units = QComboBox()
         self.combo_units.addItem("SI (m, kN, kPa)", UnitSystem.SI)
         self.combo_units.addItem("Imperial (ft, kip, ksf)", UnitSystem.IMPERIAL)
         self.combo_units.currentIndexChanged.connect(self._on_unit_system_changed)
-        toolbar.addWidget(self.combo_units)
+        self.toolbar.addWidget(self.combo_units)
 
-        toolbar.addSeparator()
+        self.toolbar.addSeparator()
+
+        btn_reset_cam = QPushButton("Reset 3D Camera")
+        btn_reset_cam.clicked.connect(lambda: self.viewport_3d.plotter.reset_camera())
+        self.toolbar.addWidget(btn_reset_cam)
+
+        btn_export = QPushButton("Export 3D Mesh")
+        btn_export.clicked.connect(lambda: self._export_mesh_dialog("vtk"))
+        self.toolbar.addWidget(btn_export)
+
+        # Row 2: Simulation & SSI Analysis Toolbar (breaks to a balanced second row for 16:9 displays)
+        self.addToolBarBreak()
+        self.sim_toolbar = QToolBar("Simulation & SSI Analysis Controls", self)
+        self.sim_toolbar.setMovable(False)
+        self.addToolBar(self.sim_toolbar)
+
+        self.btn_play = QPushButton("▶ Play Wave")
+        self.btn_play.setToolTip("Play / pause simulated dynamic seismic ground motion wave")
+        self.btn_play.clicked.connect(self._toggle_playback)
+        self.sim_toolbar.addWidget(self.btn_play)
+
+        self.sim_toolbar.addWidget(QLabel("  Timeline:"))
+        self.timeline_slider = QSlider(Qt.Horizontal)
+        self.timeline_slider.setRange(0, 1000)
+        self.timeline_slider.setValue(0)
+        self.timeline_slider.valueChanged.connect(self._on_scrubber_moved)
+        self.timeline_slider.setMinimumWidth(150)
+        self.sim_toolbar.addWidget(self.timeline_slider)
+
+        self.sim_toolbar.addSeparator()
 
         self.combo_bnwf_mode = QComboBox()
         self.combo_bnwf_mode.addItem("BNWF Dynamic", "dynamic")
         self.combo_bnwf_mode.addItem("BNWF Pushover", "pushover")
-        toolbar.addWidget(self.combo_bnwf_mode)
+        self.sim_toolbar.addWidget(self.combo_bnwf_mode)
 
-        self.btn_bnwf = QPushButton("🧱 Run 2D BNWF")
+        self.btn_bnwf = QPushButton("🧱 2D BNWF")
         self.btn_bnwf.setToolTip("Run nonlinear OpenSeesPy 2D Beam-on-Nonlinear-Winkler-Foundation (p-y/t-z/q-z) analysis")
         self.btn_bnwf.clicked.connect(self._run_bnwf_simulation)
-        toolbar.addWidget(self.btn_bnwf)
+        self.sim_toolbar.addWidget(self.btn_bnwf)
+
+        self.sim_toolbar.addSeparator()
 
         self.combo_3d_model = QComboBox()
         self.combo_3d_model.addItem("3D PDMY02", ConstitutiveModelType.PDMY02)
         self.combo_3d_model.addItem("3D PIMY", ConstitutiveModelType.PIMY)
         self.combo_3d_model.addItem("3D Elastic", ConstitutiveModelType.ELASTIC_ISOTROPIC)
-        toolbar.addWidget(self.combo_3d_model)
+        self.sim_toolbar.addWidget(self.combo_3d_model)
 
         self.combo_3d_axes = QComboBox()
         self.combo_3d_axes.addItem("1D (X)", "1D")
         self.combo_3d_axes.addItem("2D (X+Y)", "2D")
         self.combo_3d_axes.addItem("3D (X+Z+Y)", "3D")
-        toolbar.addWidget(self.combo_3d_axes)
+        self.sim_toolbar.addWidget(self.combo_3d_axes)
 
-        self.btn_fea_3d = QPushButton("🧊 Run 3D FEA")
+        self.btn_fea_3d = QPushButton("🧊 3D FEA")
         self.btn_fea_3d.setToolTip("Run full 3D OpenSeesPy continuum SSI FEA (stdBrick/brickUP + Coulomb interface + Lysmer dashpots)")
         self.btn_fea_3d.clicked.connect(self._run_3d_fea_simulation)
-        toolbar.addWidget(self.btn_fea_3d)
+        self.sim_toolbar.addWidget(self.btn_fea_3d)
 
-        self.btn_kratos = QPushButton("⚙ Run Kratos GeoMechanics FEA")
+        self.sim_toolbar.addSeparator()
+
+        self.btn_kratos = QPushButton("⚙ Kratos SSI")
         self.btn_kratos.setToolTip("Run multi-threaded deep dynamic Soil-Structure Interaction FEA with KratosMultiphysics (100% OSS)")
         self.btn_kratos.clicked.connect(self._run_kratos_simulation)
-        toolbar.addWidget(self.btn_kratos)
-
-        toolbar.addSeparator()
-
-        btn_export = QPushButton("Export 3D Mesh")
-        btn_export.clicked.connect(lambda: self._export_mesh_dialog("vtk"))
-        toolbar.addWidget(btn_export)
+        self.sim_toolbar.addWidget(self.btn_kratos)
 
         # Central Layout
         central_widget = QWidget()
@@ -421,43 +465,53 @@ class MainWindow(QMainWindow):
         h_splitter = QSplitter(Qt.Horizontal)
         main_layout.addWidget(h_splitter)
 
-        # Left Tab Widget
+        # Left Tab Widget (Scrollable containers to preserve 16:9 vertical proportions)
         self.tabs = QTabWidget()
         self.tabs.setMaximumWidth(420)
-        self.tabs.setMinimumWidth(340)
+        self.tabs.setMinimumWidth(330)
+
+        def _make_scrollable(widget: QWidget) -> QScrollArea:
+            sa = QScrollArea()
+            sa.setWidget(widget)
+            sa.setWidgetResizable(True)
+            sa.setFrameShape(QFrame.NoFrame)
+            sa.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            sa.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            sa.setStyleSheet("background: transparent; border: none;")
+            return sa
 
         self.panel_geom = GeometryPanel()
         self.panel_geom.geometryChanged.connect(self._on_geom_changed)
-        self.tabs.addTab(self.panel_geom, "Cantilever Wall")
+        self.tabs.addTab(_make_scrollable(self.panel_geom), "Cantilever Wall")
 
         self.panel_shell = ShellAndPierPanel()
         self.panel_shell.shellChanged.connect(self._on_shell_changed)
-        self.tabs.addTab(self.panel_shell, "Curved Shell")
+        self.tabs.addTab(_make_scrollable(self.panel_shell), "Curved Shell")
 
         self.panel_strut = StrutAndPilePanel()
         self.panel_strut.strutPileChanged.connect(self._on_strut_pile_changed)
-        self.tabs.addTab(self.panel_strut, "Strut & Piles")
+        self.tabs.addTab(_make_scrollable(self.panel_strut), "Strut & Piles")
 
         self.panel_soil = SoilPanel()
         self.panel_soil.soilChanged.connect(self._on_soil_changed)
         self.panel_adv_soil = self.panel_soil.adv_soil_panel
         self.panel_adv_soil.openCalibrationWizardRequested.connect(self._open_calibration_wizard)
-        self.tabs.addTab(self.panel_soil, "Soil Strata")
+        self.tabs.addTab(_make_scrollable(self.panel_soil), "Soil Strata")
 
         self.panel_seismic = SeismicPanel()
         self.panel_seismic.seismicChanged.connect(self._on_seismic_changed)
         self.panel_seismic.recordLoaded.connect(self._on_at2_loaded)
-        self.tabs.addTab(self.panel_seismic, "Disaster / Seismic")
+        self.tabs.addTab(_make_scrollable(self.panel_seismic), "Disaster / Seismic")
 
         self.panel_arch = ArchWallAndSurchargePanel()
         self.panel_arch.archConfigChanged.connect(self._on_arch_config_changed)
-        self.tabs.addTab(self.panel_arch, "Arch. & Surcharge")
+        self.tabs.addTab(_make_scrollable(self.panel_arch), "Arch. & Surcharge")
 
         self.panel_terrain = TerrainAndStudioPanel()
         self.panel_terrain.terrainUpdated.connect(self._on_terrain_updated)
         self.panel_terrain.refreshAdvisorRequested.connect(self._refresh_sizing_advisor)
         self.panel_terrain.applyRecommendedGeometryRequested.connect(self._on_apply_recommended_geometry)
-        self.tabs.addTab(self.panel_terrain, "Terrain & Studio")
+        self.tabs.addTab(_make_scrollable(self.panel_terrain), "Terrain & Studio")
         self.tabs.currentChanged.connect(self._on_left_tab_changed)
 
         h_splitter.addWidget(self.tabs)
@@ -498,11 +552,13 @@ class MainWindow(QMainWindow):
 
         v_splitter.addWidget(self.bottom_tabs)
 
-        # Splitter ratios
+        # Splitter ratios and initial 16:9 desktop allocations
         v_splitter.setStretchFactor(0, 7)
         v_splitter.setStretchFactor(1, 3)
         h_splitter.setStretchFactor(0, 2)
         h_splitter.setStretchFactor(1, 8)
+        h_splitter.setSizes([360, 1080])
+        v_splitter.setSizes([480, 260])
 
         # Status Bar
         self.status_bar = QStatusBar()

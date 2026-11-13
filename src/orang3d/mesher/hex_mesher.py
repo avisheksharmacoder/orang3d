@@ -505,22 +505,30 @@ def build_3d_soil_mesh(
     foundation_grid.point_data["PorePressure_kPa"] = pore_press_fnd.astype(np.float32)
     foundation_grid.point_data["EffectiveStress_kPa"] = np.maximum(0.0, total_stress_fnd - pore_press_fnd).astype(np.float32)
 
-    # 3. Water Table Plane with sinusoidal wave ripple dynamics
+    # 3. Water Table Plane with sinusoidal wave ripple dynamics and caustics pattern
     water_plane = pv.Plane(
         center=((x_heel_start + x_back_end) / 2.0, water_y, z_len / 2.0),
         direction=(0, 1, 0),
         i_size=(x_back_end - x_heel_start),
         j_size=z_len,
-        i_resolution=24,
-        j_resolution=24,
+        i_resolution=36,
+        j_resolution=36,
     )
-    if ripple_phase != 0.0:
-        pts = water_plane.points.copy()
-        amp = min(0.08, 0.04 * max(0.1, seismic.horizontal_pga))
-        k_x = 2.0 * np.pi / max(1.0, (x_back_end - x_heel_start) / 3.0)
-        k_z = 2.0 * np.pi / max(1.0, z_len / 2.0)
-        pts[:, 1] += amp * np.sin(k_x * pts[:, 0] + ripple_phase) * np.cos(k_z * pts[:, 2] + 0.5 * ripple_phase)
-        water_plane.points = pts
+    pts = water_plane.points.copy()
+    x = pts[:, 0]
+    z = pts[:, 2]
+    k_x = 2.0 * np.pi / max(1.0, (x_back_end - x_heel_start) / 3.0)
+    k_z = 2.0 * np.pi / max(1.0, z_len / 2.0)
+    amp = min(0.08, 0.04 * max(0.1, seismic.horizontal_pga)) if ripple_phase != 0.0 else 0.025
+    ripple = (
+        amp * np.sin(k_x * x + ripple_phase) * np.cos(k_z * z + 0.5 * ripple_phase)
+        + 0.5 * amp * np.sin(1.8 * k_x * x - 0.7 * k_z * z + 1.2 * ripple_phase)
+        + 0.25 * amp * np.cos(2.5 * k_x * x + 2.0 * k_z * z)
+    )
+    pts[:, 1] += ripple
+    water_plane.points = pts
+    norm_ripple = (ripple - np.min(ripple)) / (np.max(ripple) - np.min(ripple) + 1e-6)
+    water_plane.point_data["Water_Ripple"] = norm_ripple.astype(np.float32)
 
     return backfill_grid, foundation_grid, water_plane
 

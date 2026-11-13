@@ -59,9 +59,13 @@ class DesignAuditTab(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
 
-        # 1. Top Bar: Code Selector + Status Banner + Export
-        banner_layout = QHBoxLayout()
-        banner_layout.addWidget(QLabel("Design Code:"))
+        # 1. Top Bar: Code Selector + Status Banner + Export (responsive 2-row layout)
+        banner_container = QVBoxLayout()
+        banner_container.setContentsMargins(0, 0, 0, 0)
+        banner_container.setSpacing(4)
+
+        row_code = QHBoxLayout()
+        row_code.addWidget(QLabel("Design Code:"))
         self.combo_standard = QComboBox()
         for std in (
             RegionalStandard.IS_14458,
@@ -71,18 +75,22 @@ class DesignAuditTab(QWidget):
         ):
             self.combo_standard.addItem(STANDARD_LABELS[std], std)
         self.combo_standard.currentIndexChanged.connect(self._on_standard_changed)
-        banner_layout.addWidget(self.combo_standard)
-
-        self.lbl_overall = QLabel("Overall Compliance Status: INITIALIZING...")
-        self.lbl_overall.setFont(QFont("Arial", 10, QFont.Bold))
-        banner_layout.addWidget(self.lbl_overall)
-        banner_layout.addStretch()
+        row_code.addWidget(self.combo_standard)
+        row_code.addStretch()
 
         self.btn_export = QPushButton("Export Audit Sheet (.md)...")
         self.btn_export.clicked.connect(self._on_export_clicked)
-        banner_layout.addWidget(self.btn_export)
+        row_code.addWidget(self.btn_export)
+        banner_container.addLayout(row_code)
 
-        layout.addLayout(banner_layout)
+        row_status = QHBoxLayout()
+        self.lbl_overall = QLabel("Overall Compliance Status: INITIALIZING...")
+        self.lbl_overall.setFont(QFont("Arial", 10, QFont.Bold))
+        row_status.addWidget(self.lbl_overall)
+        row_status.addStretch()
+        banner_container.addLayout(row_status)
+
+        layout.addLayout(banner_container)
 
         # 2. Compliance Table Widget
         self.table = QTableWidget()
@@ -94,6 +102,7 @@ class DesignAuditTab(QWidget):
         self.table.setHorizontalHeaderLabels(headers)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.table.setAlternatingRowColors(True)
 
         layout.addWidget(self.table)

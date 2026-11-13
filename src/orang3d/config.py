@@ -58,18 +58,20 @@ THEMES = {
     ThemeMode.LIGHT: THEME_LIGHT,
 }
 
-# 3D Viewport Color Scheme
+# 3D Viewport Material & Color Scheme
 VIEWPORT_COLORS: Dict[str, str] = {
-    "background": "#0f1115",
-    "wall_concrete": "#d1d5db",
-    "rebar_highlight": "#ef4444",
-    "backfill_soil": "#c2a688",
-    "foundation_soil": "#8c7860",
-    "water_plane": "#0284c7",
-    "failure_wedge": "#f97316",
-    "contact_vector": "#38bdf8",
-    "bearing_vector": "#34d399",
-    "grid": "#242933",
+    "background": "#0b0f19",
+    "wall_concrete": "#e2e8f0",      # Architectural cast-in-place reinforced concrete
+    "rebar_highlight": "#ef4444",    # High-visibility reinforcement steel
+    "backfill_soil": "#d4a373",      # Rich warm golden sand / compacted gravel fill
+    "foundation_soil": "#475569",    # Deep cool slate bedrock / dense foundation till
+    "water_plane": "#0284c7",        # Shimmering aquatic blue with wave caustics
+    "failure_wedge": "#f43f5e",      # Vivid shear rupture slip zone
+    "contact_vector": "#38bdf8",     # Cyan contact thrust
+    "bearing_vector": "#34d399",     # Emerald foundation bearing
+    "strut_steel": "#0284c7",        # High-tensile structural steel
+    "bored_pile": "#64748b",         # Cast-in-situ reinforced concrete pile
+    "grid": "#1e293b",
 }
 
 
