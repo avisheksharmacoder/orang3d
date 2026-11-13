@@ -17,16 +17,7 @@ orang3d/
 │   └── CORE_CONCEPTS.md     # Geotechnical, structural & FEA physics reference
 ├── docs/                    # Phase-by-phase completion reports & roadmap
 │   ├── DEVELOPMENT_PLAN.md  # 10-Phase master engineering development plan
-│   ├── PHASE_1_COMPLETION.md# Data contracts, validation & theme registry
-│   ├── PHASE_2_COMPLETION.md# Pure NumPy 8-node hex mesher & templates
-│   ├── PHASE_3_COMPLETION.md# Mononobe-Okabe, Seed & Whitman, stability statics
-│   ├── PHASE_4_COMPLETION.md# Structural continuous V(y), M(y) & ACI 318 rebar
-│   ├── PHASE_5_COMPLETION.md# Seismic signals, PEER .AT2 parser & Newmark engine
-│   ├── PHASE_6_COMPLETION.md# KratosMultiphysics geomechanics continuum FEA
-│   ├── PHASE_7_COMPLETION.md# Advanced PyVista 3D scientific viewport
-│   ├── PHASE_8_COMPLETION.md# High-performance 2D time-series & safety dashboard
-│   ├── PHASE_9_COMPLETION.md# Session serialization, export suite & PDF reports
-│   ├── PHASE_10_COMPLETION.md# Test coverage gate, golden benchmarks & packaging
+│   ├── PHASE_COMPLETION_SUMMARY.md # Master consolidated technical report for v1 & v2 Phases 1–10
 │   ├── SIMULATION_GUIDE.md  # Comprehensive user & simulation manual for orang3D
 │   └── PACKAGING_AND_EXPORT_GUIDE.md # Cross-platform Windows & Linux standalone packaging guide
 ├── .github/
